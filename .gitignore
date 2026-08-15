@@ -37,6 +37,14 @@ logs/
 .coverage
 htmlcov/
 
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Mag local runtime
+.mag/
+
 # OS / Editor files
 .DS_Store
 Thumbs.db
