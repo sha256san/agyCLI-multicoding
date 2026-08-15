@@ -59,7 +59,7 @@ Rust製13 Crateワークスペースにより、高い信頼性、メモリ安�
 | **Agent A (Developer)** | 実装 | ソースコード作成、バグ修正、リファクタリング、コミット |
 | **Agent B (Tester)** | テスト | 単体・結合テスト、ビルド検証、回帰テスト実行 |
 | **Agent C (Reviewer)** | レビュー | 静的解析、可読性、保守性、設計妥当性、パフォーマンス検証 |
-| **Agent D (Security)** | セキュリティ | 脆弱性診断 (CVE/OSV), 依存関係スキャン、シークレット検出 |
+| **Agent D (Security)** | セキュリティ | 脆弱性診断 (CVE/OSV)、依存関係スキャン、シークレット検出 |
 | **Agent E (Researcher)** | 調査 & 文書 | 技術仕様調査、設計書作成、README/CHANGELOG保守 |
 
 ---
