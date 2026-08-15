@@ -66,11 +66,29 @@ fn print_banner() {
     );
 }
 
+fn find_project_root() -> PathBuf {
+    let mut current = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    loop {
+        if current.join(".mag").exists()
+            || current.join("Cargo.toml").exists()
+            || current.join("mddir").exists()
+        {
+            return current;
+        }
+        if let Some(parent) = current.parent() {
+            current = parent.to_path_buf();
+        } else {
+            break;
+        }
+    }
+    std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
-    let root_path = PathBuf::from(".");
-    let db_path = PathBuf::from(".mag/database.sqlite");
+    let root_path = find_project_root();
+    let db_path = root_path.join(".mag/database.sqlite");
 
     if let Some(cmd) = cli.command {
         match cmd {

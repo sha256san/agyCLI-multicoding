@@ -71,24 +71,31 @@ Rust製13 Crateワークスペースにより、高い信頼性、メモリ安�
 cargo build --workspace --release
 ```
 
+### インストール
+```bash
+cargo install --path crates/mag-cli
+```
+> ※ `mag` および別名 `agycli` が `~/.cargo/bin/` にインストールされ、任意のディレクトリから実行可能になります。
+
 ### コマンド一覧
 ```bash
 # 1. システム環境診断 (EnvDoctor)
-./mag doctor
+mag doctor
 
 # 2. プロジェクトの初期化
-./mag init my-project
+mag init my-project
 
 # 3. 全Agentおよびタスクの稼働状態確認
-./mag status
+mag status
 
 # 4. 自然言語による開発タスク自律実行
-./mag "RustでCLIパーサーとJWT認証モジュールを実装してください"
+mag "RustでCLIパーサーとJWT認証モジュールを実装してください"
 
 # 5. タスク管理
-./mag task list           # タスク一覧表示
-./mag task show TASK-001  # 特定タスクの詳細と実行結果確認
+mag task list           # タスク一覧表示
+mag task show TASK-001  # 特定タスクの詳細と実行結果確認
 ```
+> ※ `mag` の代わりに `agycli` コマンド（例: `agycli status`）も同等に使用可能です。
 
 ---
 

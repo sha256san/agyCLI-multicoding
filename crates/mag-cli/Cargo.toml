@@ -9,6 +9,10 @@ license.workspace = true
 name = "mag"
 path = "src/main.rs"
 
+[[bin]]
+name = "agycli"
+path = "src/main.rs"
+
 [dependencies]
 mag-common.workspace = true
 mag-config.workspace = true
