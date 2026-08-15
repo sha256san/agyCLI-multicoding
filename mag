@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
-# Multi-Agent Development Orchestrator (`mag`) launcher
+# Multi-Agent Development Orchestrator (`mag`) Rust Launcher
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH}"
+export PATH="/home/guru/.cargo/bin:${PATH}"
 
-exec python3 -m project.src.cli "$@"
+BIN_PATH="${SCRIPT_DIR}/target/debug/mag"
+
+if [ ! -f "${BIN_PATH}" ]; then
+    (cd "${SCRIPT_DIR}" && cargo build -p mag-cli --bin mag) > /dev/null 2>&1
+fi
+
+exec "${BIN_PATH}" "$@"

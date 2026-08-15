@@ -1,0 +1,18 @@
+id = "agent-e"
+name = "Researcher"
+role = "researcher"
+description = "Technical investigations, specification design, and documentation"
+
+capabilities = [
+    "research.doc",
+    "doc.write"
+]
+
+allowed_commands = [
+    "git",
+    "cat",
+    "ls",
+    "grep",
+    "find",
+    "python3"
+]

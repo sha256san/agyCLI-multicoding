@@ -1,0 +1,20 @@
+id = "agent-b"
+name = "Tester"
+role = "tester"
+description = "Unit testing, integration testing, build verification, and regression tests"
+
+capabilities = [
+    "test.run",
+    "build.run",
+    "lint.run"
+]
+
+allowed_commands = [
+    "cargo",
+    "git",
+    "python3",
+    "pytest",
+    "cat",
+    "ls",
+    "grep"
+]

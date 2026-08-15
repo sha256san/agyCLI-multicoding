@@ -1,0 +1,18 @@
+id = "agent-d"
+name = "Security"
+role = "security"
+description = "Vulnerability audit, CVE checking, and secret leak scanning"
+
+capabilities = [
+    "security.scan",
+    "secret.check"
+]
+
+allowed_commands = [
+    "git",
+    "cargo-audit",
+    "cat",
+    "ls",
+    "grep",
+    "find"
+]

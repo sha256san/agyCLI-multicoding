@@ -1,0 +1,52 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/mag-common",
+    "crates/mag-config",
+    "crates/mag-task",
+    "crates/mag-agent",
+    "crates/mag-logging",
+    "crates/mag-storage",
+    "crates/mag-api",
+    "crates/mag-git",
+    "crates/mag-container",
+    "crates/mag-worker",
+    "crates/mag-scheduler",
+    "crates/mag-manager",
+    "crates/mag-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["sha256san <sha256san@users.noreply.github.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/sha256san/agyCLI-multicoding"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+thiserror = "2.0"
+anyhow = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+rusqlite = { version = "0.33", features = ["bundled"] }
+tokio = { version = "1.43", features = ["full"] }
+clap = { version = "4.5", features = ["derive"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tempfile = "3.17"
+
+# Internal crates
+mag-common = { path = "crates/mag-common" }
+mag-config = { path = "crates/mag-config" }
+mag-task = { path = "crates/mag-task" }
+mag-agent = { path = "crates/mag-agent" }
+mag-logging = { path = "crates/mag-logging" }
+mag-storage = { path = "crates/mag-storage" }
+mag-api = { path = "crates/mag-api" }
+mag-git = { path = "crates/mag-git" }
+mag-container = { path = "crates/mag-container" }
+mag-worker = { path = "crates/mag-worker" }
+mag-scheduler = { path = "crates/mag-scheduler" }
+mag-manager = { path = "crates/mag-manager" }
+mag-cli = { path = "crates/mag-cli" }

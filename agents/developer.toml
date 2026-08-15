@@ -1,0 +1,24 @@
+id = "agent-a"
+name = "Developer"
+role = "developer"
+description = "Source code implementation, refactoring, and bug fixing"
+
+capabilities = [
+    "code.write",
+    "code.modify",
+    "git.commit",
+    "test.run"
+]
+
+allowed_commands = [
+    "cargo",
+    "rustc",
+    "git",
+    "python3",
+    "pytest",
+    "cat",
+    "ls",
+    "mkdir",
+    "cp",
+    "mv"
+]

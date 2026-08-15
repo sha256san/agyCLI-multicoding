@@ -1,0 +1,11 @@
+[package]
+name = "mag-agent"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+mag-common.workspace = true
+serde.workspace = true
+thiserror.workspace = true

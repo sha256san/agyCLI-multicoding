@@ -1,0 +1,25 @@
+[package]
+name = "mag-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "mag"
+path = "src/main.rs"
+
+[dependencies]
+mag-common.workspace = true
+mag-config.workspace = true
+mag-task.workspace = true
+mag-agent.workspace = true
+mag-logging.workspace = true
+mag-storage.workspace = true
+mag-git.workspace = true
+mag-container.workspace = true
+mag-manager.workspace = true
+clap.workspace = true
+tokio.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true

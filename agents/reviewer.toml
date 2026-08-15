@@ -1,0 +1,18 @@
+id = "agent-c"
+name = "Reviewer"
+role = "reviewer"
+description = "Static code review, readability, maintainability, and architecture compliance"
+
+capabilities = [
+    "code.read",
+    "code.review"
+]
+
+allowed_commands = [
+    "git",
+    "cat",
+    "ls",
+    "grep",
+    "find",
+    "clippy"
+]
