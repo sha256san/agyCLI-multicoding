@@ -146,6 +146,67 @@ pub struct AgentStatus {
     pub port: u16,
 }
 
+/// Authenticated user identity info.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AuthUser {
+    pub provider: String, // "google" | "gemini" | "token"
+    pub email: Option<String>,
+    pub name: Option<String>,
+    pub id: String,
+}
+
+/// Stored authentication tokens and expiration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthToken {
+    pub access_token: String,
+    pub refresh_token: Option<String>,
+    pub token_type: String,
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+/// Authentication state configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthConfig {
+    pub user: Option<AuthUser>,
+    pub token: Option<AuthToken>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl AuthConfig {
+    pub fn is_authenticated(&self) -> bool {
+        self.user.is_some() && self.token.is_some()
+    }
+}
+
+/// Dynamic Worker Pool configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkerPoolConfig {
+    #[serde(default = "default_min_workers")]
+    pub min_workers: usize,
+    #[serde(default = "default_max_workers")]
+    pub max_workers: usize,
+    #[serde(default = "default_current_workers")]
+    pub current_workers: usize,
+    #[serde(default = "default_auto_scale")]
+    pub auto_scale: bool,
+}
+
+fn default_min_workers() -> usize { 1 }
+fn default_max_workers() -> usize { 10 }
+fn default_current_workers() -> usize { 5 }
+fn default_auto_scale() -> bool { true }
+
+impl Default for WorkerPoolConfig {
+    fn default() -> Self {
+        Self {
+            min_workers: default_min_workers(),
+            max_workers: default_max_workers(),
+            current_workers: default_current_workers(),
+            auto_scale: default_auto_scale(),
+        }
+    }
+}
+
 pub mod constants {
     pub const DEFAULT_MANAGER_PORT: u16 = 8000;
     pub const DEFAULT_MAX_RETRY: u32 = 3;

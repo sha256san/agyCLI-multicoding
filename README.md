@@ -79,21 +79,27 @@ cargo install --path crates/mag-cli
 
 ### コマンド一覧
 ```bash
-# 1. システム環境診断 (EnvDoctor)
+# 1. Googleアカウントログイン & ユーザー確認
+mag login google          # Google OAuth2 デバイス認証ログイン
+mag whoami                # ログイン中ユーザー情報の確認
+mag logout                # ログアウト
+
+# 2. ワーカーコンテナ数の動的スケーリング (可変プール)
+mag scale --workers 8     # ワーカー数を動的に8台へスケール
+
+# 3. システム環境診断 (EnvDoctor)
 mag doctor
 
-# 2. プロジェクトの初期化
+# 4. プロジェクトの初期化 & ステータス確認
 mag init my-project
-
-# 3. 全Agentおよびタスクの稼働状態確認
 mag status
 
-# 4. 自然言語による開発タスク自律実行
-mag "RustでCLIパーサーとJWT認証モジュールを実装してください"
+# 5. 自然言語による開発タスク自律実行 (特定ディレクトリ指定にも対応)
+mag "/home/guru/my-app にRustのAPIサーバーを実装して"
 
-# 5. タスク管理
-mag task list           # タスク一覧表示
-mag task show TASK-001  # 特定タスクの詳細と実行結果確認
+# 6. タスク管理
+mag task list             # タスク一覧表示
+mag task show TASK-001    # 特定タスクの詳細と実行結果確認
 ```
 > ※ `mag` の代わりに `agycli` コマンド（例: `agycli status`）も同等に使用可能です。
 

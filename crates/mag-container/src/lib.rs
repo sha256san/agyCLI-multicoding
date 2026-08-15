@@ -76,6 +76,60 @@ impl ContainerManager {
     }
 }
 
+/// Dynamic Worker Pool scaling manager.
+pub struct WorkerPoolManager {
+    container_mgr: ContainerManager,
+}
+
+impl Default for WorkerPoolManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl WorkerPoolManager {
+    pub fn new() -> Self {
+        Self {
+            container_mgr: ContainerManager::new(),
+        }
+    }
+
+    pub fn scale_workers(&self, target_count: usize) -> Result<usize, ContainerError> {
+        let roles = ["developer", "tester", "reviewer", "security", "researcher"];
+        let mut active = 0;
+
+        for i in 0..target_count {
+            let role = roles[i % roles.len()];
+            let container_name = format!("mag-{}-{}", role, i + 1);
+
+            if self.container_mgr.is_docker_available() {
+                let _ = self.container_mgr.start_container(&container_name);
+            }
+            active += 1;
+        }
+
+        Ok(active)
+    }
+
+    pub fn get_pool_status(&self, total_configured: usize) -> Vec<(String, String, bool)> {
+        let roles = ["developer", "tester", "reviewer", "security", "researcher"];
+        let mut status = Vec::new();
+
+        for i in 0..total_configured {
+            let role = roles[i % roles.len()];
+            let container_name = format!("mag-{}-{}", role, i + 1);
+            let is_running = if self.container_mgr.is_docker_available() {
+                self.container_mgr.is_container_running(&container_name)
+            } else {
+                false
+            };
+            status.push((container_name, role.to_string(), is_running));
+        }
+
+        status
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

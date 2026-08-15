@@ -28,6 +28,8 @@ pub struct ProjectConfig {
     #[serde(default)]
     pub manager: ManagerConfig,
     #[serde(default)]
+    pub pool: mag_common::WorkerPoolConfig,
+    #[serde(default)]
     pub agents: HashMap<String, AgentEndpointConfig>,
 }
 
@@ -167,9 +169,26 @@ impl ProjectConfig {
             version: "0.1.0".into(),
             language: "rust".into(),
             manager: ManagerConfig::default(),
+            pool: mag_common::WorkerPoolConfig::default(),
             agents,
         }
     }
+}
+
+pub fn load_auth_config<P: AsRef<Path>>(path: P) -> Option<mag_common::AuthConfig> {
+    if let Ok(content) = fs::read_to_string(path) {
+        serde_json::from_str(&content).ok()
+    } else {
+        None
+    }
+}
+
+pub fn save_auth_config<P: AsRef<Path>>(path: P, auth: &mag_common::AuthConfig) -> Result<(), std::io::Error> {
+    if let Some(parent) = path.as_ref().parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let json = serde_json::to_string_pretty(auth)?;
+    fs::write(path, json)
 }
 
 #[cfg(test)]
@@ -183,5 +202,6 @@ mod tests {
         let loaded: ProjectConfig = toml::from_str(&toml_str).unwrap();
         assert_eq!(loaded.name, "demo");
         assert_eq!(loaded.agents.len(), 5);
+        assert_eq!(loaded.pool.min_workers, 1);
     }
 }

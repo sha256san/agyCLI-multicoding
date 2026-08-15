@@ -22,7 +22,7 @@ mod tests {
         let tasks = orch.decompose_requirement("Create hello library in Rust").unwrap();
         assert_eq!(tasks.len(), 5);
 
-        let success = orch.run_orchestration_loop(10).unwrap();
+        let success = orch.run_orchestration_loop(Some(dir.path()), 10).unwrap();
         assert!(success);
     }
 }

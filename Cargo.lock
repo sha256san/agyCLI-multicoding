@@ -709,6 +709,7 @@ name = "mag-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "mag-agent",
  "mag-common",
@@ -738,8 +739,10 @@ name = "mag-config"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "mag-common",
  "serde",
+ "serde_json",
  "thiserror",
  "toml",
 ]

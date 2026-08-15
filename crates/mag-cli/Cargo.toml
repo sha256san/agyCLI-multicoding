@@ -24,6 +24,7 @@ mag-git.workspace = true
 mag-container.workspace = true
 mag-manager.workspace = true
 clap.workspace = true
+chrono.workspace = true
 tokio.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true

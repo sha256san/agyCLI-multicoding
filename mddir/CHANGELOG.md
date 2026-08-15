@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] - 2026-08-15
+
+### Added
+- **Google Account Authentication (`mag login google` / `mag whoami` / `mag logout`)**:
+  - Implemented Google OAuth2 Device Authorization Flow (`GoogleAuthClient`).
+  - Added secure local credential store in `.mag/credentials.json`.
+  - Added user identity display in `mag status` and `mag whoami`.
+- **Dynamic Container & Worker Pool Scaling (`mag scale --workers <N>`)**:
+  - Implemented `WorkerPoolManager` in `mag-container` to scale active agent containers dynamically up to N.
+  - Added `--workers` CLI option for scaling execution pool per command.
+- **Target Path & Real Source Code Generation**:
+  - Added automatic target directory path extraction from natural language prompts (e.g. `/home/guru/agytest に...`).
+  - Generated full Rust project structure (`Cargo.toml`, `src/main.rs`, `docs/spec.md`) and verified automated compilation and execution.
+
+---
+
 ## [0.2.0-rust.1] - 2026-08-15
 
 ### Added
