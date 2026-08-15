@@ -1,0 +1,21 @@
+name: "agent-d"
+role: "security"
+description: "Vulnerability analysis, dependency audit, secret leakage detection, and static security checks"
+
+permissions:
+  read:
+    - "project"
+  write:
+    - "security_reports"
+
+allowed_commands:
+  - "git"
+  - "cargo-audit"
+  - "pip-audit"
+  - "npm"
+  - "semgrep"
+  - "trivy"
+  - "cat"
+  - "ls"
+  - "grep"
+  - "find"

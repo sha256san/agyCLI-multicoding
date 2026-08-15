@@ -1,0 +1,72 @@
+services:
+  manager:
+    build:
+      context: .
+      dockerfile: containers/developer/Dockerfile
+    container_name: mag-manager
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/workspace
+    command: ["python3", "-m", "project.src.cli", "start-server"]
+    depends_on:
+      - agent-a
+      - agent-b
+      - agent-c
+      - agent-d
+      - agent-e
+
+  agent-a:
+    build:
+      context: .
+      dockerfile: containers/developer/Dockerfile
+    container_name: mag-agent-a
+    ports:
+      - "8001:8001"
+    volumes:
+      - .:/workspace
+    command: ["python3", "-m", "project.src.worker.server", "--agent-id", "agent-a", "--role", "developer", "--port", "8001"]
+
+  agent-b:
+    build:
+      context: .
+      dockerfile: containers/tester/Dockerfile
+    container_name: mag-agent-b
+    ports:
+      - "8002:8002"
+    volumes:
+      - .:/workspace
+    command: ["python3", "-m", "project.src.worker.server", "--agent-id", "agent-b", "--role", "tester", "--port", "8002"]
+
+  agent-c:
+    build:
+      context: .
+      dockerfile: containers/reviewer/Dockerfile
+    container_name: mag-agent-c
+    ports:
+      - "8003:8003"
+    volumes:
+      - .:/workspace
+    command: ["python3", "-m", "project.src.worker.server", "--agent-id", "agent-c", "--role", "reviewer", "--port", "8003"]
+
+  agent-d:
+    build:
+      context: .
+      dockerfile: containers/security/Dockerfile
+    container_name: mag-agent-d
+    ports:
+      - "8004:8004"
+    volumes:
+      - .:/workspace
+    command: ["python3", "-m", "project.src.worker.server", "--agent-id", "agent-d", "--role", "security", "--port", "8004"]
+
+  agent-e:
+    build:
+      context: .
+      dockerfile: containers/researcher/Dockerfile
+    container_name: mag-agent-e
+    ports:
+      - "8005:8005"
+    volumes:
+      - .:/workspace
+    command: ["python3", "-m", "project.src.worker.server", "--agent-id", "agent-e", "--role", "researcher", "--port", "8005"]

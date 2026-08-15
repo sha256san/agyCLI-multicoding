@@ -1,0 +1,38 @@
+name: "multi-agent-project"
+version: "0.1.0"
+language: "python"
+target_os: "ubuntu"
+target_os_version: "24.04"
+
+manager:
+  host: "127.0.0.1"
+  port: 8000
+  max_retries: 3
+  task_timeout: 300
+
+agents:
+  developer:
+    id: "agent-a"
+    role: "developer"
+    host: "127.0.0.1"
+    port: 8001
+  tester:
+    id: "agent-b"
+    role: "tester"
+    host: "127.0.0.1"
+    port: 8002
+  reviewer:
+    id: "agent-c"
+    role: "reviewer"
+    host: "127.0.0.1"
+    port: 8003
+  security:
+    id: "agent-d"
+    role: "security"
+    host: "127.0.0.1"
+    port: 8004
+  researcher:
+    id: "agent-e"
+    role: "researcher"
+    host: "127.0.0.1"
+    port: 8005

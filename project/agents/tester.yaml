@@ -1,0 +1,19 @@
+name: "agent-b"
+role: "tester"
+description: "Unit testing, integration testing, build verification, and regression tests"
+
+permissions:
+  read:
+    - "project"
+  write:
+    - "test_results"
+
+allowed_commands:
+  - "git"
+  - "python3"
+  - "pytest"
+  - "cargo"
+  - "npm"
+  - "cat"
+  - "ls"
+  - "grep"

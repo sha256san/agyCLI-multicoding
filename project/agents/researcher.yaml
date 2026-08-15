@@ -1,0 +1,18 @@
+name: "agent-e"
+role: "researcher"
+description: "Technical investigations, library API exploration, documentation, and README/CHANGELOG maintenance"
+
+permissions:
+  read:
+    - "project"
+  write:
+    - "docs"
+    - "readme"
+
+allowed_commands:
+  - "git"
+  - "cat"
+  - "ls"
+  - "grep"
+  - "find"
+  - "python3"

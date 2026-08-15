@@ -1,0 +1,25 @@
+name: "agent-a"
+role: "developer"
+description: "Implementation, code editing, refactoring, and bug fixes"
+
+permissions:
+  read:
+    - "project"
+  write:
+    - "source"
+    - "tests"
+
+allowed_commands:
+  - "git"
+  - "python3"
+  - "pytest"
+  - "cargo"
+  - "rustc"
+  - "npm"
+  - "cat"
+  - "ls"
+  - "find"
+  - "mkdir"
+  - "cp"
+  - "mv"
+  - "touch"
