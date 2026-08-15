@@ -7,11 +7,11 @@ license.workspace = true
 
 [[bin]]
 name = "mag"
-path = "src/main.rs"
+path = "src/bin/mag.rs"
 
 [[bin]]
 name = "agycli"
-path = "src/main.rs"
+path = "src/bin/agycli.rs"
 
 [dependencies]
 mag-common.workspace = true

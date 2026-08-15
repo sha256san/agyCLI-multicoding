@@ -1,4 +1,4 @@
-//! Multi-Agent Development Orchestrator (`mag`) CLI binary.
+//! Multi-Agent Development Orchestrator (`mag`) CLI implementation.
 
 use clap::{Parser, Subcommand};
 use mag_config::ProjectConfig;
@@ -12,17 +12,17 @@ use std::path::PathBuf;
     about = "Multi-Agent Software Development Orchestrator",
     version = "0.1.0"
 )]
-struct Cli {
+pub struct Cli {
     #[command(subcommand)]
-    command: Option<Commands>,
+    pub command: Option<Commands>,
 
     /// Natural language development requirement prompt
     #[arg(trailing_var_arg = true)]
-    prompt_args: Vec<String>,
+    pub prompt_args: Vec<String>,
 }
 
 #[derive(Subcommand)]
-enum Commands {
+pub enum Commands {
     /// Initialize a new mag multi-agent project
     Init {
         #[arg(default_value = "my-agent-project")]
@@ -44,7 +44,7 @@ enum Commands {
 }
 
 #[derive(Subcommand)]
-enum TaskCommands {
+pub enum TaskCommands {
     /// List all tasks
     List,
     /// Show details for a specific task
@@ -53,7 +53,7 @@ enum TaskCommands {
     },
 }
 
-fn print_banner() {
+pub fn print_banner() {
     println!(
         r#"
   __  __         _ _   _              _                    _   
@@ -66,7 +66,7 @@ fn print_banner() {
     );
 }
 
-fn find_project_root() -> PathBuf {
+pub fn find_project_root() -> PathBuf {
     let mut current = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     loop {
         if current.join(".mag").exists()
@@ -84,8 +84,7 @@ fn find_project_root() -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+pub async fn run_cli() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let root_path = find_project_root();
     let db_path = root_path.join(".mag/database.sqlite");
@@ -94,14 +93,14 @@ async fn main() -> anyhow::Result<()> {
         match cmd {
             Commands::Init { name } => {
                 println!("[*] Initializing Multi-Agent project '{}'...", name);
-                std::fs::create_dir_all(".mag/agents")?;
-                std::fs::create_dir_all(".mag/logs")?;
-                std::fs::create_dir_all("src")?;
-                std::fs::create_dir_all("tests")?;
-                std::fs::create_dir_all("docs")?;
+                std::fs::create_dir_all(root_path.join(".mag/agents"))?;
+                std::fs::create_dir_all(root_path.join(".mag/logs"))?;
+                std::fs::create_dir_all(root_path.join("src"))?;
+                std::fs::create_dir_all(root_path.join("tests"))?;
+                std::fs::create_dir_all(root_path.join("docs"))?;
 
                 let cfg = ProjectConfig::default_project(&name);
-                cfg.save_to_file(".mag/config.toml")?;
+                cfg.save_to_file(root_path.join(".mag/config.toml"))?;
 
                 let git = GitManager::new(&root_path);
                 git.init_repo()?;
@@ -197,7 +196,7 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_workflow(prompt: &str, root_path: &PathBuf, db_path: &PathBuf) -> anyhow::Result<()> {
+pub fn run_workflow(prompt: &str, root_path: &PathBuf, db_path: &PathBuf) -> anyhow::Result<()> {
     print_banner();
     println!("[*] Received instruction: \"{}\"\n", prompt);
 
