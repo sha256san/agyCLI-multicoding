@@ -1,4 +1,4 @@
-# Multi-Agent Development Orchestrator (`mag`)
+# Multi-Agent Development Orchestrator (`mag` / `agycli`) v0.2.1
 
 > **AIを増やすのではなく、AIを組織化する。**  
 > 複数のAIエージェントが独立したコンテナ環境で協調し、自律的にソフトウェアを開発・検証・統合するRust製次世代オーケストレーションプラットフォーム。
@@ -7,9 +7,9 @@
 
 ## 📖 概要
 
-**Multi-Agent Development Orchestrator (`mag`)** は、単一のAIに頼るのではなく、**Manager（統括）**、**Developer（実装）**、**Tester（テスト）**、**Reviewer（レビュー）**、**Security（セキュリティ）**、**Researcher（調査）** の専門エージェントを組織化し、ソフトウェア開発ライフサイクル（要件分析→タスクDAG分解→実装→テスト→レビュー→セキュリティ診断→自己修復→Gitマージ）を自律実行するシステムです。
+**Multi-Agent Development Orchestrator (`mag` / `agycli`)** は、単一のAIに依存するのではなく、**Manager（統括）**、**Developer（実装）**、**Tester（テスト）**、**Reviewer（レビュー）**、**Security（セキュリティ）**、**Researcher（調査）** の専門エージェントを組織化し、ソフトウェア開発ライフサイクル（要件分析→タスクDAG分解→実装→テスト→レビュー→セキュリティ診断→自己修復→Gitマージ）を自律実行するシステムです。
 
-Rust製13 Crateワークスペースにより、高い信頼性、メモリ安全性、高速な実行基盤を提供します。
+Rust製13 Crateワークスペースにより、高い信頼性、メモリ安全性、高速な並列実行基盤を提供します。
 
 ```text
                         Manager (Rust / Ubuntu 26.04)
@@ -43,9 +43,11 @@ Rust製13 Crateワークスペースにより、高い信頼性、メモリ安�
 
 - 🏢 **組織化された役割分担**: 5つの特化ロール（実装/テスト/レビュー/セキュリティ/調査）をDAG（有向非巡回グラフ）で連携。
 - 🦀 **Rust-Native 13 Crate 構成**: 高速・安全・モジュール分離されたCargo Workspace設計。
-- 📦 **完全なコンテナ & 実行隔離**: Workerはコンテナ内で独立実行され、依存関係の衝突や環境汚染を防止。
-- 🔄 **自己修復 (Self-Repair) ループ**: ビルド・テスト・レビュー失敗時に自動で原因を解析し、修正指示を再試行（最大3回）。
-- 🌳 **Git Worktree 分離**: Agentごとに専用ブランチ・作業領域を割り当て、競合を物理的に回避。
+- 📦 **全コンテナへの `agycli` 自動インストール**: 各Workerコンテナ内に `agycli` がプリインストールされ、コンテナ内からも完全操作可能。
+- 🔑 **コンテナ個別ログイン & 認証永続化**: `agycli login "agent-a"` で個別認証。コンテナ停止・再起動・再インストール後も認証情報を自動維持（Zero Auth Loss）。
+- 🤝 **動的マルチロール & 協調型タスクキュー**: ワーカー数が少数（例: 2台）でも、複数ロールを柔軟に兼任し、空きワーカーがタスクを自律取得（Work-Stealing）。
+- 🔄 **自己修復 (Self-Repair) & 自動 `main` マージ**: テスト・レビュー失敗時の自動修正（最大3回）と、全パス時の自動ブランチマージ。
+- 🌳 **Git Worktree 分離**: Agent/Taskごとに専用作業領域を割り当て、並列実行時のファイル競合を物理的に防止。
 - 🛡️ **厳格な安全装置**: コマンドホワイトリスト、危険コマンド検知、タイムアウト制限、人間確認ゲートを標準装備。
 - 🧩 **診断ツール連携**: `envdoctor` (環境起因エラー診断) や `jpcargo` (Rust日本語エラー解析) との連携。
 
@@ -66,42 +68,40 @@ Rust製13 Crateワークスペースにより、高い信頼性、メモリ安�
 
 ## 🚀 クイックスタート & CLI
 
-### ビルド
+### ビルド & インストール
 ```bash
 cargo build --workspace --release
-```
-
-### インストール
-```bash
 cargo install --path crates/mag-cli
 ```
 > ※ `mag` および別名 `agycli` が `~/.cargo/bin/` にインストールされ、任意のディレクトリから実行可能になります。
 
 ### コマンド一覧
 ```bash
-# 1. Googleアカウントログイン & ユーザー確認
-mag login google          # Google OAuth2 デバイス認証ログイン
-mag whoami                # ログイン中ユーザー情報の確認
-mag logout                # ログアウト
+# 1. 認証 (グローバル / コンテナ個別指定ログイン)
+agycli login google           # グローバル Google OAuth2 ログイン
+agycli login "agent-a"        # 特定コンテナ指定のブラウザ認証ログイン
+agycli whoami                 # グローバル認証ユーザー情報の確認
+agycli whoami agent-a         # 特定コンテナの認証状態確認
+agycli logout                 # ログアウト
 
 # 2. ワーカーコンテナ数の動的スケーリング (可変プール)
-mag scale --workers 8     # ワーカー数を動的に8台へスケール
+agycli scale --workers 8      # ワーカー数を動的に8台へスケール
 
 # 3. システム環境診断 (EnvDoctor)
-mag doctor
+agycli doctor
 
 # 4. プロジェクトの初期化 & ステータス確認
-mag init my-project
-mag status
+agycli init my-project
+agycli status
 
-# 5. 自然言語による開発タスク自律実行 (特定ディレクトリ指定にも対応)
-mag "/home/guru/my-app にRustのAPIサーバーを実装して"
+# 5. 自然言語による開発タスク自律実行 (特定ディレクトリ指定 & 協調ワーカー数指定)
+agycli run "/home/guru/agytest にrustのプログラムを書いて" --workers 2
 
 # 6. タスク管理
-mag task list             # タスク一覧表示
-mag task show TASK-001    # 特定タスクの詳細と実行結果確認
+agycli task list              # タスク一覧表示
+agycli task show TASK-001     # 特定タスクの詳細と実行結果確認
 ```
-> ※ `mag` の代わりに `agycli` コマンド（例: `agycli status`）も同等に使用可能です。
+> ※ `agycli` と `mag` コマンド（例: `mag status`）は完全に同等に使用可能です。
 
 ---
 
@@ -109,36 +109,39 @@ mag task show TASK-001    # 特定タスクの詳細と実行結果確認
 
 ```text
 agyCLI++/
-├── Cargo.toml                  # Root Cargo Workspace
+├── Cargo.toml                  # Root Cargo Workspace (v0.2.1)
 ├── rust-toolchain.toml         # ツールチェーン固定
 ├── mag                         # 統合CLIランチャー
-├── docker-compose.yml          # コンテナ構成
+├── docker-compose.yml          # コンテナ構成 & 認証ボリューム共有
 │
 ├── crates/                     # Rust 13-Crate コア実装
-│   ├── mag-common/             # 共通型・Enum (AgentRole, TaskStatus, TaskResult)
-│   ├── mag-config/             # TOML設定ローダー & バリデータ
+│   ├── mag-common/             # 共通型・Enum (AgentRole, TaskStatus, TaskResult, AuthConfig)
+│   ├── mag-config/             # TOML設定ローダー & コンテナ認証永続化管理
 │   ├── mag-task/               # タスクモデル・状態マシン・DAG依存関係
 │   ├── mag-agent/              # エージェント定義・Capabilities・コマンド許可ポリシー
 │   ├── mag-logging/            # 構造化JSONロギング
 │   ├── mag-storage/            # SQLite 永続化 (rusqlite)
 │   ├── mag-git/                # Git Worktree / ブランチ / コミット / マージ管理
-│   ├── mag-container/          # Docker CLI 連携 & コンテナライフサイクル
-│   ├── mag-api/                # HTTP REST クライアント (reqwest / rustls)
+│   ├── mag-container/          # Docker CLI 連携 & コンテナ内コマンド実行 & プールスケーリング
+│   ├── mag-api/                # HTTP REST & Google OAuth2 Device Flow クライアント
 │   ├── mag-worker/             # 実行エンジン (CommandExecutor) & ロール別ハンドラー
-│   ├── mag-scheduler/          # タスクDAGスケジューラ & 並列実行制御
-│   ├── mag-manager/            # Manager オーケストレーター & 自己修復ループ
-│   └── mag-cli/                # 統合CLIバイナリ (clap)
+│   ├── mag-scheduler/          # タスクDAGスケジューラ & Work-Stealing 協調キュー
+│   ├── mag-manager/            # Manager オーケストレーター & 自動 main マージ
+│   └── mag-cli/                # 統合CLIバイナリ (`mag` & `agycli`)
 │
 ├── agents/                     # TOMLエージェント定義 (developer, tester, reviewer, security, researcher)
-├── containers/                 # Dockerfile定義 (各ロール専用コンテナ)
+├── containers/                 # Dockerfile定義 (agycli プリインストール済みコンテナ)
 │
 ├── mddir/                      # プロジェクトドキュメント体系
-│   ├── addplan.md              # Rust実装マスター計画書
+│   ├── addplan4.md             # コンテナログイン・再認証永続化・協調キュー・自動マージ仕様書
+│   ├── addplan3.md             # コンテナ内 agycli 統合 & v0.2.0 仕様書
+│   ├── addplan2.md             # Google認証・可変スケーリング・コード生成仕様書
+│   ├── addplan.md              # Rust 13-Crate 実装マスター計画書
 │   ├── SPEC.md                 # 要件・仕様定義書
 │   ├── TODO.md                 # 実装進捗ロードマップ
 │   ├── MEMORY.md               # 知識ベース・ADR・5大開発原則
 │   ├── AGENTS.md               # エージェント行動規範 & JSON出力スキーマ
-│   ├── CHANGELOG.md            # 変更履歴
+│   ├── CHANGELOG.md            # 変更履歴 (v0.2.1)
 │   └── plan.md                 # 全体構想書
 │
 └── project/                    # 実装コードベース & プロトタイプ
@@ -150,8 +153,11 @@ agyCLI++/
 
 ## 📚 関連ドキュメント
 
-- 📘 [仕様書 (SPEC.md)](file:///home/guru/agyCLI++/mddir/SPEC.md)
+- 🚀 [第4次拡張仕様書 (addplan4.md)](file:///home/guru/agyCLI++/mddir/addplan4.md)
+- 📦 [第3次拡張仕様書 (addplan3.md)](file:///home/guru/agyCLI++/mddir/addplan3.md)
+- 🔑 [第2次拡張仕様書 (addplan2.md)](file:///home/guru/agyCLI++/mddir/addplan2.md)
 - 🦀 [Rust実装マスター計画書 (addplan.md)](file:///home/guru/agyCLI++/mddir/addplan.md)
+- 📘 [仕様書 (SPEC.md)](file:///home/guru/agyCLI++/mddir/SPEC.md)
 - 📝 [実装計画 & ロードマップ (TODO.md)](file:///home/guru/agyCLI++/mddir/TODO.md)
 - 🧠 [知識ベース & 設計原則 (MEMORY.md)](file:///home/guru/agyCLI++/mddir/MEMORY.md)
 - 🤖 [エージェント行動規範 (AGENTS.md)](file:///home/guru/agyCLI++/mddir/AGENTS.md)
