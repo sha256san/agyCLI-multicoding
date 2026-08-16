@@ -140,3 +140,16 @@
 - [x] **クレデンシャル分離 & クロスアクセス防止テスト**
   - [x] 単体テスト `test_account_isolation_cross_access` & `test_agent_auth_state_transitions` 実装・全パス
 
+---
+
+## 🎯 GNOME Keyring/DBus ヘッドレス認証 & エージェント指定実行 ロードマップ (`mddir/addplan8.md` 準拠) 【完了】
+
+- [x] **コンテナ内 GNOME Keyring + DBus シークレットサービス環境**
+  - [x] 各 Dockerfile への `dbus-x11`, `libsecret-1-0`, `gnome-keyring` 導入
+  - [x] `entrypoint.sh` による DBus 起動 & 鍵リング自動アンロック
+- [x] **エージェント指定実行 CLI (`agycli run [--detach] [<agent>] "<prompt>"`)**
+  - [x] `agycli run agent-a "..."` / `agycli run --detach developer "..."` のターゲットエージェント自動抽出
+- [x] **`docker-compose.yml` ボリューム更新**
+  - [x] `agy-dev-auth`, `agy-tester-auth`, `agy-reviewer-auth`, `agy-security-auth`, `agy-research-auth` を `/home/agent/.gemini/antigravity-cli` にマッピング
+
+

@@ -27,8 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `agycli auth status [--verbose]`: Formatted agent authentication table with privacy masking and verbose email inspection.
     - `agycli auth login <agent>` & `agycli agent auth <agent>`: Authenticates dedicated accounts per role/container (`developer`, `tester`, `reviewer`, `security`, `researcher`).
     - `agycli clean [containers|cache|auth|all]`: Safe cleanup with confirmation guards.
-    - Named Docker Volume mappings: `agy_developer_auth`, `agy_tester_auth`, `agy_reviewer_auth`, `agy_security_auth`, `agy_researcher_auth`.
-    - Unit tests for credential isolation and cross-access prevention.
+  - **Headless Secret Service & Target Agent Execution (`mddir/addplan8.md`)**:
+    - Installed `dbus-x11`, `libsecret-1-0`, `gnome-keyring` and entrypoint daemon initialization across all agent container Dockerfiles.
+    - Updated `docker-compose.yml` with persistent named volumes (`agy-dev-auth`, `agy-tester-auth`, `agy-reviewer-auth`, `agy-security-auth`, `agy-research-auth`) mapping to `/home/agent/.gemini/antigravity-cli`.
+    - `agycli run [--detach] [<agent>] "<prompt>"`: Support targeting individual agents (e.g. `agycli run agent-a "加算関数をテスト"`, `agycli run --detach developer "計算モジュールを実装"`).
 
 ---
 

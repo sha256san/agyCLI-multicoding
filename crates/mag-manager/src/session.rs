@@ -41,7 +41,18 @@ impl SessionManager {
         let mut running_step = "All tasks completed".to_string();
         let mut overall_status = "PENDING".to_string();
 
-        let task_group: Vec<&Task> = all_tasks.iter().collect();
+        let target_task = all_tasks.iter().find(|t| t.id == task_id);
+        let task_group: Vec<&Task> = if let Some(target) = target_task {
+            let title = &target.title;
+            let matched: Vec<&Task> = all_tasks.iter().filter(|t| t.title == *title).collect();
+            if matched.is_empty() {
+                vec![target]
+            } else {
+                matched
+            }
+        } else {
+            all_tasks.iter().rev().take(5).rev().collect()
+        };
 
         for t in &task_group {
             let (pct, status_str) = match t.status.to_string().as_str() {

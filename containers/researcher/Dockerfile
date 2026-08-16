@@ -9,16 +9,22 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     build-essential \
+    dbus-x11 \
+    libsecret-1-0 \
+    gnome-keyring \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install agycli and mag into container
+# Install agycli, mag, and entrypoint into container
 COPY target/release/agycli /usr/local/bin/agycli
 COPY target/release/mag /usr/local/bin/mag
-RUN chmod +x /usr/local/bin/agycli /usr/local/bin/mag
+COPY containers/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/agycli /usr/local/bin/mag /usr/local/bin/entrypoint.sh
 
 RUN useradd -m -s /bin/bash agent-e
 USER agent-e
 WORKDIR /workspace
 
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 EXPOSE 8005
 CMD ["python3", "-m", "project.src.worker.server", "--agent-id", "agent-e", "--role", "researcher", "--port", "8005"]

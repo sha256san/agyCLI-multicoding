@@ -9,7 +9,7 @@ services:
       - "8000:8000"
     volumes:
       - .:/workspace
-      - manager_state:/agent-state
+      - agy-manager-state:/agent-state
     command: ["python3", "-m", "project.src.cli", "start-server"]
     depends_on:
       - agent-a
@@ -28,8 +28,8 @@ services:
       - "8001:8001"
     volumes:
       - .:/workspace
-      - developer_auth:/home/agent/.gemini
-      - developer_state:/agent-state
+      - agy-dev-auth:/home/agent-a/.gemini/antigravity-cli
+      - agy-dev-state:/agent-state
     command: ["python3", "-m", "project.src.worker.server", "--agent-id", "agent-a", "--role", "developer", "--port", "8001"]
 
   agent-b:
@@ -42,8 +42,8 @@ services:
       - "8002:8002"
     volumes:
       - .:/workspace
-      - tester_auth:/home/agent/.gemini
-      - tester_state:/agent-state
+      - agy-tester-auth:/home/agent-b/.gemini/antigravity-cli
+      - agy-tester-state:/agent-state
     command: ["python3", "-m", "project.src.worker.server", "--agent-id", "agent-b", "--role", "tester", "--port", "8002"]
 
   agent-c:
@@ -56,8 +56,8 @@ services:
       - "8003:8003"
     volumes:
       - .:/workspace
-      - reviewer_auth:/home/agent/.gemini
-      - reviewer_state:/agent-state
+      - agy-reviewer-auth:/home/agent-c/.gemini/antigravity-cli
+      - agy-reviewer-state:/agent-state
     command: ["python3", "-m", "project.src.worker.server", "--agent-id", "agent-c", "--role", "reviewer", "--port", "8003"]
 
   agent-d:
@@ -70,8 +70,8 @@ services:
       - "8004:8004"
     volumes:
       - .:/workspace
-      - security_auth:/home/agent/.gemini
-      - security_state:/agent-state
+      - agy-security-auth:/home/agent-d/.gemini/antigravity-cli
+      - agy-security-state:/agent-state
     command: ["python3", "-m", "project.src.worker.server", "--agent-id", "agent-d", "--role", "security", "--port", "8004"]
 
   agent-e:
@@ -84,30 +84,19 @@ services:
       - "8005:8005"
     volumes:
       - .:/workspace
-      - researcher_auth:/home/agent/.gemini
-      - researcher_state:/agent-state
+      - agy-research-auth:/home/agent-e/.gemini/antigravity-cli
+      - agy-research-state:/agent-state
     command: ["python3", "-m", "project.src.worker.server", "--agent-id", "agent-e", "--role", "researcher", "--port", "8005"]
 
 volumes:
-  manager_state:
-    name: agy_manager_state
-  developer_auth:
-    name: agy_developer_auth
-  developer_state:
-    name: agy_developer_state
-  tester_auth:
-    name: agy_tester_auth
-  tester_state:
-    name: agy_tester_state
-  reviewer_auth:
-    name: agy_reviewer_auth
-  reviewer_state:
-    name: agy_reviewer_state
-  security_auth:
-    name: agy_security_auth
-  security_state:
-    name: agy_security_state
-  researcher_auth:
-    name: agy_researcher_auth
-  researcher_state:
-    name: agy_researcher_state
+  agy-manager-state:
+  agy-dev-auth:
+  agy-dev-state:
+  agy-tester-auth:
+  agy-tester-state:
+  agy-reviewer-auth:
+  agy-reviewer-state:
+  agy-security-auth:
+  agy-security-state:
+  agy-research-auth:
+  agy-research-state:

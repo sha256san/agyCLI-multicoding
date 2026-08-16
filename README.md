@@ -303,6 +303,7 @@ agyCLI++/
 
 ## 📚 関連ドキュメント
 
+- 🔒 [第8次拡張仕様書: GNOME Keyring・DBusヘッドレス認証・エージェント指定実行 (addplan8.md)](file:///home/guru/agyCLI++/mddir/addplan8.md)
 - 🔑 [第7次拡張仕様書: Agent別認証・コンテナ永続化・クリーン (addplan7.md)](file:///home/guru/agyCLI++/mddir/addplan7.md)
 - 🚀 [全体拡張仕様書 (addbigplan.md)](file:///home/guru/agyCLI++/mddir/addbigplan.md)
 - 📋 [第6次拡張仕様書 (addplan6.md)](file:///home/guru/agyCLI++/mddir/addplan6.md)

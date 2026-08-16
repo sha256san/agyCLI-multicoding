@@ -74,7 +74,9 @@ pub enum Commands {
     },
     /// Run autonomous multi-agent task workflow (foreground or --detach)
     Run {
-        prompt: String,
+        /// Optional target agent name (e.g. agent-a, developer) followed by prompt, or prompt directly
+        #[arg(trailing_var_arg = true)]
+        prompt: Vec<String>,
         #[arg(short, long)]
         workers: Option<usize>,
         #[arg(short, long)]
@@ -318,7 +320,30 @@ pub async fn run_cli() -> anyhow::Result<()> {
             }
         },
         Some(Commands::Run { prompt, workers, detach, .. }) => {
-            run_workflow(&prompt, &root_path, &db_path, workers, detach)?;
+            if prompt.is_empty() {
+                println!("Error: Please provide a prompt or instruction. Example: agycli run --detach \"Create web app\"");
+                return Ok(());
+            }
+
+            let first = &prompt[0];
+            let is_agent = matches!(
+                first.to_lowercase().as_str(),
+                "agent-a" | "agent-b" | "agent-c" | "agent-d" | "agent-e"
+                | "developer" | "tester" | "reviewer" | "security" | "researcher"
+                | "dev" | "test" | "review" | "sec" | "research"
+            );
+
+            let (target_agent, prompt_str) = if is_agent && prompt.len() > 1 {
+                (Some(resolve_agent_target(first)), prompt[1..].join(" "))
+            } else {
+                (None, prompt.join(" "))
+            };
+
+            if let Some(ref agent) = target_agent {
+                println!("Target Agent: {} ({})", agent, get_agent_role_label(agent));
+            }
+
+            run_workflow(&prompt_str, &root_path, &db_path, workers, detach)?;
         }
         Some(Commands::Attach { task_id }) => {
             attach_task(&root_path, &db_path, task_id.as_deref())?;
