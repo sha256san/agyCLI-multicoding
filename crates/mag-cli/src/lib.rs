@@ -97,6 +97,10 @@ pub enum Commands {
         #[command(subcommand)]
         action: DaemonCommands,
     },
+    /// List running and configured agent containers
+    Containers,
+    /// Alias for containers (list running containers)
+    Ps,
     /// Start interactive AGY-style REPL terminal mode
     Interactive,
 }
@@ -283,6 +287,9 @@ pub async fn run_cli() -> anyhow::Result<()> {
                 println!("[✓] Manager Daemon restarted successfully! (PID: {})", info.pid);
             }
         },
+        Some(Commands::Containers) | Some(Commands::Ps) => {
+            show_containers(&root_path)?;
+        }
         Some(Commands::Interactive) => {
             start_interactive_repl(&root_path, &db_path, &auth_path)?;
         }
@@ -316,6 +323,21 @@ fn init_project(root_path: &Path, name: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn show_containers(root_path: &Path) -> anyhow::Result<()> {
+    let pool_mgr = WorkerPoolManager::new();
+    let containers = pool_mgr.list_containers(root_path);
+
+    println!("\nActive & Configured Agent Containers:");
+    println!("{:<14} {:<14} {:<20} {:<30}", "CONTAINER", "ROLE", "STATUS", "IMAGE");
+    println!("{:-<80}", "");
+    for c in &containers {
+        let status_mark = if c.is_running { format!("[●] {}", c.status) } else { format!("[○] {}", c.status) };
+        println!("{:<14} {:<14} {:<20} {:<30}", c.name, c.role, status_mark, c.image);
+    }
+    println!();
+    Ok(())
+}
+
 fn show_status(root_path: &Path, db_path: &Path, auth_path: &Path) -> anyhow::Result<()> {
     print_banner();
     println!("System & Orchestrator Status:");
@@ -345,6 +367,16 @@ fn show_status(root_path: &Path, db_path: &Path, auth_path: &Path) -> anyhow::Re
     let completed = tasks.iter().filter(|t| t.status.to_string() == "COMPLETED").count();
     println!("    - Running:   {}", running);
     println!("    - Completed: {}", completed);
+
+    println!("\n  Agent Containers:");
+    let pool_mgr = WorkerPoolManager::new();
+    let containers = pool_mgr.list_containers(root_path);
+    println!("    {:<12} {:<12} {:<18} {:<25}", "CONTAINER", "ROLE", "STATUS", "IMAGE");
+    println!("    {:-<70}", "");
+    for c in &containers {
+        let status_colored = if c.is_running { format!("[●] {}", c.status) } else { format!("[○] {}", c.status) };
+        println!("    {:<12} {:<12} {:<18} {:<25}", c.name, c.role, status_colored, c.image);
+    }
     println!();
     Ok(())
 }
@@ -716,7 +748,8 @@ pub fn start_interactive_repl(root_path: &PathBuf, db_path: &PathBuf, auth_path:
             break;
         } else if trimmed == "/help" {
             println!("\nAvailable AGY Slash Commands:");
-            println!("  /status            Show orchestrator, agents, and task status");
+            println!("  /status            Show orchestrator, agents, containers, and task status");
+            println!("  /containers, /ps   List active and configured agent containers");
             println!("  /doctor            Run EnvDoctor environment diagnostics");
             println!("  /login [target]    Authenticate (e.g. /login google, /login agent-a)");
             println!("  /whoami [cnt]      Show logged in user or container credentials");
@@ -730,6 +763,8 @@ pub fn start_interactive_repl(root_path: &PathBuf, db_path: &PathBuf, auth_path:
             println!("  <prompt>           Execute multi-agent autonomous development workflow\n");
         } else if trimmed == "/status" {
             let _ = show_status(root_path, db_path, auth_path);
+        } else if trimmed == "/containers" || trimmed == "/ps" {
+            let _ = show_containers(root_path);
         } else if trimmed == "/doctor" {
             let _ = run_doctor();
         } else if trimmed.starts_with("/login") {

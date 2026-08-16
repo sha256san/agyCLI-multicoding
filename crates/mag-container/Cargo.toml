@@ -10,3 +10,4 @@ thiserror.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 tokio.workspace = true
+mag-config.workspace = true
