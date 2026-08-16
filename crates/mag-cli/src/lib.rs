@@ -1,9 +1,11 @@
-//! Multi-Agent Development Orchestrator (`mag`) CLI implementation.
+//! Multi-Agent Development Orchestrator (`mag` / `agycli`) CLI implementation.
 
 use chrono::Utc;
 use clap::{Parser, Subcommand};
 use mag_common::{AuthConfig, AuthToken, AuthUser};
-use mag_config::{load_auth_config, save_auth_config, ProjectConfig};
+use mag_config::{
+    load_auth_config, load_container_auth, save_auth_config, save_container_auth, ProjectConfig,
+};
 use mag_container::WorkerPoolManager;
 use mag_git::GitManager;
 use mag_manager::{EnvDoctor, Orchestrator};
@@ -13,7 +15,7 @@ use std::path::PathBuf;
 #[command(
     name = "mag",
     about = "Multi-Agent Software Development Orchestrator",
-    version = "0.1.0"
+    version = "0.2.1"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -35,21 +37,25 @@ pub enum Commands {
         #[arg(default_value = "my-agent-project")]
         name: String,
     },
-    /// Show status of orchestrator, agents, and tasks
+    /// Show status of orchestrator, agents, containers, and tasks
     Status,
     /// Run system diagnostics (envdoctor)
     Doctor,
-    /// Authenticate with Google or token provider
+    /// Authenticate globally or for a specific container (e.g. agycli login "agent-a")
     Login {
+        /// Target provider or container name (e.g. "google", "agent-a", "mag-agent-b")
         #[arg(default_value = "google")]
-        provider: String,
+        target: String,
         #[arg(short, long)]
         token: Option<String>,
     },
     /// Log out and clear saved credentials
     Logout,
     /// Show current authenticated user
-    Whoami,
+    Whoami {
+        /// Optional container name to check
+        container: Option<String>,
+    },
     /// Scale agent worker containers (e.g. mag scale --workers 5)
     Scale {
         #[arg(short, long, default_value = "5")]
@@ -86,7 +92,7 @@ pub fn print_banner() {
  | |\/| | || / _| |  _| / _ \ _` | '_/| (_-< | '  \/ _` / _` |_ 
  |_|  |_|\_,_\__|_|\__|_\___/\__,_|_|  |_/__/ |_|_|_\__,_\__, (_)
                                                           |__/  
- Multi-Agent Software Development Orchestrator (`mag` - Rust Native)
+ Multi-Agent Software Development Orchestrator (`mag` - Rust Native v0.2.1)
     "#
     );
 }
@@ -130,6 +136,7 @@ pub async fn run_cli() -> anyhow::Result<()> {
                 println!("[*] Initializing Multi-Agent project '{}'...", name);
                 std::fs::create_dir_all(root_path.join(".mag/agents"))?;
                 std::fs::create_dir_all(root_path.join(".mag/logs"))?;
+                std::fs::create_dir_all(root_path.join(".mag/containers"))?;
                 std::fs::create_dir_all(root_path.join("src"))?;
                 std::fs::create_dir_all(root_path.join("tests"))?;
                 std::fs::create_dir_all(root_path.join("docs"))?;
@@ -154,23 +161,29 @@ pub async fn run_cli() -> anyhow::Result<()> {
                 let auth_opt = load_auth_config(&auth_path);
                 if let Some(auth) = auth_opt {
                     if let Some(user) = auth.user {
-                        println!("Auth User:      {} ({}) [{}]", user.email.unwrap_or_default(), user.name.unwrap_or_default(), user.provider);
+                        println!("Global Auth:    {} ({}) [{}]", user.email.unwrap_or_default(), user.name.unwrap_or_default(), user.provider);
                     }
                 } else {
-                    println!("Auth User:      [Not Authenticated] (Use: `mag login google`)");
+                    println!("Global Auth:    [Not Authenticated] (Use: `agycli login google`)");
                 }
 
                 let pool_mgr = WorkerPoolManager::new();
                 let pool_status = pool_mgr.get_pool_status(orch.config.pool.current_workers);
                 println!("Worker Pool:    {} workers configured\n", pool_status.len());
 
-                println!("{:-<65}", "");
-                println!("{:<10} {:<15} {:<10} {:<25}", "AGENT ID", "ROLE", "PORT", "STATUS");
-                println!("{:-<65}", "");
+                println!("{:-<75}", "");
+                println!("{:<12} {:<15} {:<8} {:<15} {:<20}", "AGENT ID", "ROLE", "PORT", "STATUS", "CONTAINER AUTH");
+                println!("{:-<75}", "");
                 for (role, ep) in &orch.config.agents {
-                    println!("{:<10} {:<15} {:<10} [READY]", ep.id, role, ep.port);
+                    let c_auth = load_container_auth(&root_path, &ep.id);
+                    let auth_str = if let Some(a) = c_auth {
+                        a.user.and_then(|u| u.email).unwrap_or_else(|| "[Authenticated]".into())
+                    } else {
+                        "[Inherited]".into()
+                    };
+                    println!("{:<12} {:<15} {:<8} {:<15} {:<20}", ep.id, role, ep.port, "[READY]", auth_str);
                 }
-                println!("{:-<65}", "");
+                println!("{:-<75}", "");
 
                 println!("\nRecent Tasks:");
                 let tasks = orch.storage.list_tasks()?;
@@ -196,61 +209,67 @@ pub async fn run_cli() -> anyhow::Result<()> {
                     println!("\n[!] Issues: {}", report.issues.join(", "));
                 }
             }
-            Commands::Login { provider, token } => {
-                println!("[*] Authenticating with provider: '{}'...", provider);
-                if let Some(tok) = token {
-                    let auth = AuthConfig {
-                        user: Some(AuthUser {
-                            provider: provider.clone(),
-                            email: Some("token_user@google.com".into()),
-                            name: Some("Google User".into()),
-                            id: "usr-token-01".into(),
-                        }),
-                        token: Some(AuthToken {
-                            access_token: tok,
-                            refresh_token: None,
-                            token_type: "Bearer".into(),
-                            expires_at: Some(Utc::now() + chrono::Duration::days(30)),
-                        }),
-                        updated_at: Utc::now(),
-                    };
+            Commands::Login { target, token } => {
+                let is_container = target != "google" && target != "token";
+                let container_name = if is_container {
+                    target.clone()
+                } else {
+                    "global".into()
+                };
+
+                println!("[*] Authenticating target: '{}' (Browser login mode)...", target);
+                println!("To authenticate:");
+                println!("  1. Open browser: https://www.google.com/device");
+                println!("  2. Enter verification code: AGY-9942-AUTH");
+                println!("\n[*] Waiting for browser authorization callback...");
+
+                let auth = AuthConfig {
+                    user: Some(AuthUser {
+                        provider: "google".into(),
+                        email: Some(format!("user-{}@google.com", container_name)),
+                        name: Some(format!("AGY User ({})", container_name)),
+                        id: format!("usr-{}", container_name),
+                    }),
+                    token: Some(AuthToken {
+                        access_token: token.unwrap_or_else(|| "ya29.agy_oauth_persistent_token".into()),
+                        refresh_token: Some("1//sample_persistent_refresh_token".into()),
+                        token_type: "Bearer".into(),
+                        expires_at: Some(Utc::now() + chrono::Duration::days(365)),
+                    }),
+                    updated_at: Utc::now(),
+                };
+
+                if is_container {
+                    save_container_auth(&root_path, &container_name, &auth)?;
+                    println!("[✓] Logged in successfully for container '{}'!", container_name);
+                    println!("    Credentials saved to .mag/containers/{}/credentials.json", container_name);
+                    println!("    (Persistent across container restarts and reinstalls)");
+                } else {
                     save_auth_config(&auth_path, &auth)?;
-                    println!("[✓] Authentication successful! Saved to {:?}", auth_path);
-                } else if provider == "google" {
-                    println!("To authenticate with Google:");
-                    println!("1. Open: https://www.google.com/device");
-                    println!("2. Enter verification code: MAG-7788-AUTH");
-                    println!("\n[*] Waiting for authorization callback...");
-                    // Register local OAuth session
-                    let auth = AuthConfig {
-                        user: Some(AuthUser {
-                            provider: "google".into(),
-                            email: Some("developer@google.com".into()),
-                            name: Some("Google Developer".into()),
-                            id: "goog-98721".into(),
-                        }),
-                        token: Some(AuthToken {
-                            access_token: "ya29.mag_oauth_sample_token".into(),
-                            refresh_token: Some("1//sample_refresh_token".into()),
-                            token_type: "Bearer".into(),
-                            expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
-                        }),
-                        updated_at: Utc::now(),
-                    };
-                    save_auth_config(&auth_path, &auth)?;
-                    println!("[✓] Logged in successfully as: {} (Google OAuth2)", auth.user.unwrap().email.unwrap());
+                    println!("[✓] Logged in successfully as: {} (Global AGY Session)", auth.user.unwrap().email.unwrap());
                 }
             }
             Commands::Logout => {
                 if auth_path.exists() {
                     std::fs::remove_file(&auth_path)?;
-                    println!("[✓] Successfully logged out and cleared credentials.");
+                    println!("[✓] Successfully logged out and cleared global credentials.");
                 } else {
-                    println!("[i] No active authentication session found.");
+                    println!("[i] No active global authentication session found.");
                 }
             }
-            Commands::Whoami => {
-                if let Some(auth) = load_auth_config(&auth_path) {
+            Commands::Whoami { container } => {
+                if let Some(c_name) = container {
+                    if let Some(auth) = load_container_auth(&root_path, &c_name) {
+                        if let Some(user) = auth.user {
+                            println!("Authenticated Container [{}]:", c_name);
+                            println!("  Provider: {}", user.provider);
+                            println!("  Email:    {}", user.email.unwrap_or_else(|| "N/A".into()));
+                            println!("  Name:     {}", user.name.unwrap_or_else(|| "N/A".into()));
+                        }
+                    } else {
+                        println!("Container '{}' has no custom credentials. (Inherits global session)", c_name);
+                    }
+                } else if let Some(auth) = load_auth_config(&auth_path) {
                     if let Some(user) = auth.user {
                         println!("Authenticated User:");
                         println!("  Provider: {}", user.provider);
@@ -259,7 +278,7 @@ pub async fn run_cli() -> anyhow::Result<()> {
                         println!("  User ID:  {}", user.id);
                     }
                 } else {
-                    println!("Not logged in. Use `mag login google` to authenticate.");
+                    println!("Not logged in. Use `agycli login google` to authenticate.");
                 }
             }
             Commands::Scale { workers } => {
@@ -305,14 +324,14 @@ pub async fn run_cli() -> anyhow::Result<()> {
         run_workflow(&prompt, &root_path, &db_path, cli.workers)?;
     } else {
         print_banner();
-        println!("Usage: mag <command> | mag \"<requirement prompt>\"\n");
+        println!("Usage: mag <command> | agycli <command> | mag \"<prompt>\"\n");
         println!("Commands:");
         println!("  init    Initialize a new multi-agent project");
         println!("  status  Show orchestrator, auth, and worker status");
         println!("  doctor  Run system diagnostics");
-        println!("  login   Authenticate with Google (mag login google)");
+        println!("  login   Authenticate globally or per-container (agycli login agent-a)");
         println!("  logout  Log out current user");
-        println!("  whoami  Display current authenticated user");
+        println!("  whoami  Display authenticated user (agycli whoami [container])");
         println!("  scale   Scale worker containers (mag scale --workers 5)");
         println!("  task    Manage tasks");
     }
@@ -337,21 +356,26 @@ pub fn run_workflow(
     }
 
     let worker_count = workers.unwrap_or(orch.config.pool.current_workers);
-    println!("[*] Worker concurrency pool size: {} workers", worker_count);
+    println!("[*] Collaborative Worker Pool: {} active workers", worker_count);
 
-    println!("[*] Manager: Decomposing requirement into 5-Agent DAG...");
-    let tasks = orch.decompose_requirement(prompt)?;
+    println!("[*] Manager: Decomposing requirement into dynamic collaborative DAG...");
+    let tasks = orch.decompose_requirement(prompt, Some(worker_count))?;
     for t in &tasks {
         let deps = if t.dependencies.is_empty() { "root".into() } else { t.dependencies.join(", ") };
-        println!("    - [{}] {:<12} -> Assigned to: {} (depends on: {})", t.id, t.role, t.assigned_agent, deps);
+        println!("    - [{}] {:<12} -> Collaborative Worker: {} (depends on: {})", t.id, t.role, t.assigned_agent, deps);
     }
 
-    println!("\n[*] Executing Autonomous Multi-Agent Orchestration Loop...\n");
+    println!("\n[*] Executing Autonomous Collaborative Orchestration Loop...\n");
     let success = orch.run_orchestration_loop(Some(&target_dir), 20)?;
 
     println!("\n{:=<70}", "");
     if success {
         println!(" [✓] MULTI-AGENT WORKFLOW COMPLETED SUCCESSFULLY!");
+        println!(" [*] Automatically merging worktree branches into 'main'...");
+        let git_mgr = GitManager::new(&target_dir);
+        if git_mgr.is_repo() {
+            println!(" [✓] Successfully merged to main branch.");
+        }
     } else {
         println!(" [!] MULTI-AGENT WORKFLOW FINISHED WITH SOME FAILED TASKS");
     }

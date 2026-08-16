@@ -58,7 +58,7 @@ impl Orchestrator {
         self.repo_path.clone()
     }
 
-    pub fn decompose_requirement(&self, prompt: &str) -> Result<Vec<Task>, OrchestratorError> {
+    pub fn decompose_requirement(&self, prompt: &str, worker_count: Option<usize>) -> Result<Vec<Task>, OrchestratorError> {
         let existing = self.storage.list_tasks()?;
         let base_num = existing.len() + 1;
 
@@ -70,15 +70,19 @@ impl Orchestrator {
 
         let t1 = Task::new(&id1, format!("Spec: {}", prompt), format!("Architecture notes for: {}", prompt), "agent-e", AgentRole::Researcher);
         let t2 = Task::new(&id2, format!("Implementation: {}", prompt), format!("Implement source for: {}", prompt), "agent-a", AgentRole::Developer)
-            .with_dependencies(vec![id1]);
+            .with_dependencies(vec![id1.clone()]);
         let t3 = Task::new(&id3, format!("Testing: {}", prompt), format!("Run tests for: {}", prompt), "agent-b", AgentRole::Tester)
-            .with_dependencies(vec![id2]);
+            .with_dependencies(vec![id2.clone()]);
         let t4 = Task::new(&id4, format!("Review: {}", prompt), format!("Review code for: {}", prompt), "agent-c", AgentRole::Reviewer)
-            .with_dependencies(vec![id3]);
+            .with_dependencies(vec![id3.clone()]);
         let t5 = Task::new(&id5, format!("Security: {}", prompt), format!("Security audit for: {}", prompt), "agent-d", AgentRole::Security)
-            .with_dependencies(vec![id4]);
+            .with_dependencies(vec![id4.clone()]);
 
-        let tasks = vec![t1, t2, t3, t4, t5];
+        let mut tasks = vec![t1, t2, t3, t4, t5];
+        if let Some(count) = worker_count {
+            TaskScheduler::assign_collaborative_workers(&mut tasks, count);
+        }
+
         for t in &tasks {
             self.storage.save_task(t)?;
         }
@@ -180,7 +184,16 @@ impl Orchestrator {
         }
 
         let final_tasks = self.storage.list_tasks()?;
-        Ok(TaskScheduler::is_all_completed(&final_tasks))
+        let all_passed = TaskScheduler::is_all_completed(&final_tasks);
+        if all_passed {
+            let eff_dir = target_dir.unwrap_or(&self.repo_path);
+            let git_mgr = GitManager::new(eff_dir);
+            if !git_mgr.is_repo() {
+                let _ = git_mgr.init_repo();
+            }
+        }
+
+        Ok(all_passed)
     }
 }
 
@@ -195,12 +208,24 @@ mod tests {
         let db_path = dir.path().join("test.sqlite");
 
         let orch = Orchestrator::new(dir.path(), &db_path).unwrap();
-        let tasks = orch.decompose_requirement("Create hello library in Rust").unwrap();
+        let tasks = orch.decompose_requirement("Create hello library in Rust", None).unwrap();
         assert_eq!(tasks.len(), 5);
 
         let success = orch.run_orchestration_loop(Some(dir.path()), 10).unwrap();
         assert!(success);
         assert!(dir.path().join("Cargo.toml").exists());
         assert!(dir.path().join("src/main.rs").exists());
+    }
+
+    #[test]
+    fn test_orchestrator_two_workers() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("test.sqlite");
+
+        let orch = Orchestrator::new(dir.path(), &db_path).unwrap();
+        let tasks = orch.decompose_requirement("Build math utility in Rust", Some(2)).unwrap();
+        assert_eq!(tasks[0].assigned_agent, "agent-1");
+        assert_eq!(tasks[1].assigned_agent, "agent-2");
+        assert_eq!(tasks[2].assigned_agent, "agent-1");
     }
 }

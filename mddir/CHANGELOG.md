@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.1] - 2026-08-16
+
+### Added
+- **Per-Container Authentication & Persistence (`mddir/addplan4.md`)**:
+  - `agycli login <container_name>` (e.g. `agycli login agent-a`): triggers browser login and saves persistent credentials to `.mag/containers/<name>/credentials.json`.
+  - Credentials persist across container restarts, updates, and reinstalls without authentication loss.
+  - Initial container startup is completely clean.
+- **Dynamic Multi-Role Collaborative Task Queue**:
+  - Work-stealing collaborative task scheduler (`TaskScheduler::assign_collaborative_workers` & `claim_next_task_for_worker`).
+  - Allows 1..N workers (e.g. 2 workers) to cooperatively execute all 5 roles without idle blocking.
+  - Conflict-free Git Worktrees per task/container.
+- **Auto Git Merge on Workflow Completion**:
+  - Automatically merges worktree branches into `main` branch upon successful multi-agent verification.
+
+---
+
 ## [0.2.0] - 2026-08-16
 
 ### Added

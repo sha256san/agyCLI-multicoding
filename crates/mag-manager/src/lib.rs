@@ -19,7 +19,7 @@ mod tests {
         let db_path = dir.path().join("test.sqlite");
 
         let orch = Orchestrator::new(dir.path(), &db_path).unwrap();
-        let tasks = orch.decompose_requirement("Create hello library in Rust").unwrap();
+        let tasks = orch.decompose_requirement("Create hello library in Rust", None).unwrap();
         assert_eq!(tasks.len(), 5);
 
         let success = orch.run_orchestration_loop(Some(dir.path()), 10).unwrap();

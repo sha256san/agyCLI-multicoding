@@ -191,6 +191,18 @@ pub fn save_auth_config<P: AsRef<Path>>(path: P, auth: &mag_common::AuthConfig) 
     fs::write(path, json)
 }
 
+pub fn load_container_auth<P: AsRef<Path>>(root: P, container_name: &str) -> Option<mag_common::AuthConfig> {
+    let clean_name = container_name.trim_start_matches("mag-");
+    let path = root.as_ref().join(".mag/containers").join(clean_name).join("credentials.json");
+    load_auth_config(path)
+}
+
+pub fn save_container_auth<P: AsRef<Path>>(root: P, container_name: &str, auth: &mag_common::AuthConfig) -> Result<(), std::io::Error> {
+    let clean_name = container_name.trim_start_matches("mag-");
+    let path = root.as_ref().join(".mag/containers").join(clean_name).join("credentials.json");
+    save_auth_config(path, auth)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

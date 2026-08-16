@@ -128,6 +128,29 @@ impl WorkerPoolManager {
 
         status
     }
+
+    pub fn exec_container_command(&self, container_name: &str, cmd: &[&str]) -> Result<String, ContainerError> {
+        let mut args = vec!["exec", container_name];
+        args.extend_from_slice(cmd);
+
+        let output = Command::new(&self.container_mgr.docker_cmd)
+            .args(&args)
+            .output()?;
+
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        } else {
+            Err(ContainerError::CommandFailed(
+                String::from_utf8_lossy(&output.stderr).to_string(),
+            ))
+        }
+    }
+
+    pub fn ensure_container_auth_directory(&self, root_path: &std::path::Path, container_name: &str) {
+        let clean_name = container_name.trim_start_matches("mag-");
+        let dir = root_path.join(".mag/containers").join(clean_name);
+        let _ = std::fs::create_dir_all(&dir);
+    }
 }
 
 #[cfg(test)]
