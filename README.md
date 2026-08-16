@@ -130,6 +130,9 @@ $ agycli login agent-a
 ```
 
 ```text
+[*] Spawning background 'agy' CLI authentication for agent: 'agent-a'...
+[*] Automatically selecting login method '1. Google OAuth' in background agy session...
+
      ▄▀▀▄
     ▀▀▀▀▀▀
    ▀▀▀▀▀▀▀▀
@@ -138,7 +141,7 @@ $ agycli login agent-a
 
  Your browser should open automatically. If not:
 
- https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com&code_challenge=ChINlJI5L3cwf-wMdxY4zhetloIjj5lq792H5-tmL2g_agent-a&code_challenge_method=S256&prompt=consent&redirect_uri=https%3A%2F%2Fantigravity.google%2Foauth-callback&response_type=code&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcclog+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fexperimentsandconfigs+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Faicode+openid&state=DadSgkul3RkXfC0lLdec0Q_agent-a
+ https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com&code_challenge=o_qANMMW9afOKvcghCIX7M12sm1lQe4LYfNjjely5Is_agent-a&code_challenge_method=S256&prompt=consent&redirect_uri=https%3A%2F%2Fantigravity.google%2Foauth-callback&response_type=code&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcclog+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fexperimentsandconfigs+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Faicode+openid&state=qln7FPSRCn8Ln_HYVptwbw_agent-a
 
  Copy and paste the URL or click on the link below:
  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
