@@ -191,10 +191,59 @@ pub fn save_auth_config<P: AsRef<Path>>(path: P, auth: &mag_common::AuthConfig) 
     fs::write(path, json)
 }
 
+fn fetch_email_from_token(access_token: &str) -> Option<String> {
+    if !access_token.starts_with("ya29.") {
+        return None;
+    }
+    let url = format!("https://oauth2.googleapis.com/tokeninfo?access_token={}", access_token);
+    let output = std::process::Command::new("curl")
+        .args(["-s", "--max-time", "3", &url])
+        .output()
+        .ok()?;
+    if output.status.success() {
+        let content = String::from_utf8_lossy(&output.stdout);
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+            if let Some(email) = val.get("email").and_then(|v| v.as_str()) {
+                return Some(email.to_string());
+            }
+        }
+    }
+    None
+}
+
 pub fn load_container_auth<P: AsRef<Path>>(root: P, container_name: &str) -> Option<mag_common::AuthConfig> {
     let clean_name = container_name.trim_start_matches("mag-");
-    let path = root.as_ref().join(".mag/containers").join(clean_name).join("credentials.json");
-    load_auth_config(path)
+    let container_dir = root.as_ref().join(".mag/containers").join(clean_name);
+    let path = container_dir.join("credentials.json");
+    let mut auth = load_auth_config(&path)?;
+
+    // Check if we need to resolve the real email from oauth token
+    let needs_email_resolve = auth.user.as_ref().map(|u| {
+        u.email.as_ref().map(|e| e.starts_with("user-agent") || e.starts_with("user-") || e == "N/A").unwrap_or(true)
+    }).unwrap_or(true);
+
+    if needs_email_resolve {
+        let token_path = container_dir.join("home/.gemini/antigravity-cli/antigravity-oauth-token");
+        if token_path.exists() {
+            if let Ok(token_content) = fs::read_to_string(&token_path) {
+                if let Ok(token_json) = serde_json::from_str::<serde_json::Value>(&token_content) {
+                    if let Some(access_token) = token_json.get("token").and_then(|t| t.get("access_token")).and_then(|v| v.as_str()) {
+                        if let Some(real_email) = fetch_email_from_token(access_token) {
+                            if let Some(ref mut u) = auth.user {
+                                u.email = Some(real_email);
+                            }
+                            if let Some(ref mut t) = auth.token {
+                                t.access_token = access_token.to_string();
+                            }
+                            let _ = save_auth_config(&path, &auth);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Some(auth)
 }
 
 pub fn save_container_auth<P: AsRef<Path>>(root: P, container_name: &str, auth: &mag_common::AuthConfig) -> Result<(), std::io::Error> {

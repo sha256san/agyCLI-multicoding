@@ -588,6 +588,7 @@ pub fn get_agent_role_label(agent_id: &str) -> &'static str {
 }
 
 fn show_auth_status(root_path: &Path, verbose: bool) -> anyhow::Result<()> {
+    let _ = mag_config::sync_agent_md(root_path);
     let logged_in = mag_config::get_logged_in_agents(root_path);
     let roles = [
         ("Developer", "agent-a"),
@@ -718,6 +719,26 @@ fn run_clean_all(root_path: &Path, force: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn fetch_email_from_token(access_token: &str) -> Option<String> {
+    if !access_token.starts_with("ya29.") {
+        return None;
+    }
+    let url = format!("https://oauth2.googleapis.com/tokeninfo?access_token={}", access_token);
+    let output = std::process::Command::new("curl")
+        .args(["-s", "--max-time", "4", &url])
+        .output()
+        .ok()?;
+    if output.status.success() {
+        let content = String::from_utf8_lossy(&output.stdout);
+        if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+            if let Some(email) = val.get("email").and_then(|v| v.as_str()) {
+                return Some(email.to_string());
+            }
+        }
+    }
+    None
+}
+
 fn perform_login(root_path: &Path, auth_path: &Path, raw_target: &str, token: Option<String>) -> anyhow::Result<()> {
     let resolved = resolve_agent_target(raw_target);
     let is_container = resolved != "google" && resolved != "token";
@@ -730,6 +751,8 @@ fn perform_login(root_path: &Path, auth_path: &Path, raw_target: &str, token: Op
     println!("[*] Initializing real Antigravity (`agy`) interactive authentication for agent: '{}'...", raw_target);
 
     let mut user_email = None;
+    let mut real_access_token = token.clone();
+    let mut real_refresh_token = None;
 
     if let Some(agy_bin) = find_agy_binary() {
         println!("[*] Launching authentic Antigravity CLI binary: {}", agy_bin.display());
@@ -749,7 +772,15 @@ fn perform_login(root_path: &Path, auth_path: &Path, raw_target: &str, token: Op
         if oauth_token_path.exists() {
             if let Ok(content) = std::fs::read_to_string(&oauth_token_path) {
                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-                    user_email = val.get("email").and_then(|v| v.as_str()).map(|s| s.to_string());
+                    if let Some(tok_obj) = val.get("token") {
+                        if let Some(acc) = tok_obj.get("access_token").and_then(|v| v.as_str()) {
+                            real_access_token = Some(acc.to_string());
+                            user_email = fetch_email_from_token(acc);
+                        }
+                        if let Some(ref_tok) = tok_obj.get("refresh_token").and_then(|v| v.as_str()) {
+                            real_refresh_token = Some(ref_tok.to_string());
+                        }
+                    }
                 }
             }
         }
@@ -790,21 +821,32 @@ fn perform_login(root_path: &Path, auth_path: &Path, raw_target: &str, token: Op
         );
     }
 
-    let final_email = user_email.unwrap_or_else(|| {
+    if user_email.is_none() {
         if let Ok(home) = std::env::var("HOME") {
             let global_token = PathBuf::from(home).join(".gemini/antigravity-cli/antigravity-oauth-token");
             if global_token.exists() {
                 if let Ok(content) = std::fs::read_to_string(&global_token) {
                     if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
-                        if let Some(em) = val.get("email").and_then(|v| v.as_str()) {
-                            return em.to_string();
+                        if let Some(tok_obj) = val.get("token") {
+                            if let Some(acc) = tok_obj.get("access_token").and_then(|v| v.as_str()) {
+                                if real_access_token.is_none() {
+                                    real_access_token = Some(acc.to_string());
+                                }
+                                user_email = fetch_email_from_token(acc);
+                            }
+                            if let Some(ref_tok) = tok_obj.get("refresh_token").and_then(|v| v.as_str()) {
+                                if real_refresh_token.is_none() {
+                                    real_refresh_token = Some(ref_tok.to_string());
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-        format!("user-{}@google.com", container_name)
-    });
+    }
+
+    let final_email = user_email.unwrap_or_else(|| format!("user-{}@google.com", container_name));
 
     let auth = AuthConfig {
         user: Some(AuthUser {
@@ -814,8 +856,8 @@ fn perform_login(root_path: &Path, auth_path: &Path, raw_target: &str, token: Op
             id: format!("usr-{}", container_name),
         }),
         token: Some(AuthToken {
-            access_token: token.unwrap_or_else(|| "ya29.agy_oauth_live_token".into()),
-            refresh_token: Some("1//sample_persistent_refresh_token".into()),
+            access_token: real_access_token.unwrap_or_else(|| "ya29.agy_oauth_live_token".into()),
+            refresh_token: real_refresh_token.or_else(|| Some("1//sample_persistent_refresh_token".into())),
             token_type: "Bearer".into(),
             expires_at: Some(Utc::now() + chrono::Duration::days(365)),
         }),
