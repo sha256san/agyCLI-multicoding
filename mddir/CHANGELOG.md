@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.2] - 2026-08-16
+
+### Added
+- **Native AGY Interactive Terminal REPL & Slash Commands (`mddir/addplan5.md`)**:
+  - Running `agycli` without arguments now launches an interactive terminal session (`agycli ❯ `) matching the original `agy` experience.
+  - Implemented AGY Slash Commands:
+    - `/help`: Display available slash commands and descriptions.
+    - `/status`: Show orchestrator, agent, container auth, and task statuses.
+    - `/doctor`: Run `EnvDoctor` diagnostics.
+    - `/login [target]`: Authenticate globally or per-container.
+    - `/whoami [cnt]`: Display authenticated user and container identity.
+    - `/workers [N]`: Scale worker agent pool dynamically.
+    - `/tasks`: List recent tasks and execution results.
+    - `/clear`: Clear the screen and refresh header.
+    - `/exit` / `/quit`: Terminate interactive session.
+  - Real-time streaming autonomous multi-agent task execution from within the REPL.
+
+---
+
 ## [0.2.1] - 2026-08-16
 
 ### Added

@@ -63,3 +63,29 @@
   - [x] 全ソースコードのコミット
   - [x] Git タグ `v0.2.0` 作成
   - [x] `git@github.com:sha256san/agyCLI-multicoding.git` へのプッシュ
+
+---
+
+## 🎯 コンテナ個別ログイン・協調キュー・v0.2.1 ロードマップ (`mddir/addplan4.md` 準拠) 【完了】
+
+- [x] **コンテナ個別ログイン & 永続化 (`agycli login <container>`)**
+  - [x] `.mag/containers/<name>/credentials.json` による認証永続化
+  - [x] コンテナ停止・再起動・再インストール後も認証維持（Zero Auth Loss）
+- [x] **動的マルチロール協調キュー (Work-Stealing)**
+  - [x] 少数ワーカー（例: 2台）でのマルチロール兼任 & 自律タスク取得
+  - [x] Git Worktree による並列競合防止
+- [x] **GitHub リリース v0.2.1**
+  - [x] 自動 `main` マージ
+  - [x] Git タグ `v0.2.1` 作成・プッシュ
+
+---
+
+## 🎯 対話型 REPL / TUI ターミナル & スラッシュコマンド (`mddir/addplan5.md` 準拠) 【完了】
+
+- [x] **`agy` 互換の対話型ターミナル REPL / TUI モード**
+  - [x] 引数なし実行時の対話型プロンプト（`agycli ❯ `）起動
+  - [x] リッチなバナーと認証・ワーカー稼働状態ヘッダー
+- [x] **AGY 標準スラッシュコマンド**
+  - [x] `/help`, `/status`, `/doctor`, `/login`, `/whoami`, `/workers`, `/tasks`, `/clear`, `/exit`
+- [x] **対話型自律マルチエージェント開発プロンプト実行**
+  - [x] REPL内からのリアルタイムプロンプトディスパッチと `agycli ❯ ` への安全復帰

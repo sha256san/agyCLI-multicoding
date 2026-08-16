@@ -1,4 +1,4 @@
-//! Multi-Agent Development Orchestrator (`mag` / `agycli`) CLI implementation.
+//! Multi-Agent Development Orchestrator (`mag` / `agycli`) Interactive CLI implementation.
 
 use chrono::Utc;
 use clap::{Parser, Subcommand};
@@ -9,13 +9,14 @@ use mag_config::{
 use mag_container::WorkerPoolManager;
 use mag_git::GitManager;
 use mag_manager::{EnvDoctor, Orchestrator};
-use std::path::PathBuf;
+use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
 #[command(
-    name = "mag",
-    about = "Multi-Agent Software Development Orchestrator",
-    version = "0.2.1"
+    name = "agycli",
+    about = "Antigravity Multi-Agent Software Development CLI",
+    version = "0.2.2"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -56,7 +57,7 @@ pub enum Commands {
         /// Optional container name to check
         container: Option<String>,
     },
-    /// Scale agent worker containers (e.g. mag scale --workers 5)
+    /// Scale agent worker containers (e.g. agycli scale --workers 5)
     Scale {
         #[arg(short, long, default_value = "5")]
         workers: usize,
@@ -72,6 +73,8 @@ pub enum Commands {
         #[arg(short, long)]
         workers: Option<usize>,
     },
+    /// Start interactive AGY-style REPL terminal mode
+    Interactive,
 }
 
 #[derive(Subcommand)]
@@ -87,14 +90,32 @@ pub enum TaskCommands {
 pub fn print_banner() {
     println!(
         r#"
-  __  __         _ _   _              _                    _   
- |  \/  |_  _ __| | |_(_)___ __ _ _ _ (_)___  _ __  __ _ __| |  
- | |\/| | || / _| |  _| / _ \ _` | '_/| (_-< | '  \/ _` / _` |_ 
- |_|  |_|\_,_\__|_|\__|_\___/\__,_|_|  |_/__/ |_|_|_\__,_\__, (_)
-                                                          |__/  
- Multi-Agent Software Development Orchestrator (`mag` - Rust Native v0.2.1)
+      _          ___ _     ___ _ 
+     /_\  __ _ _/ __| |   |_ _| |
+    / _ \/ _` | | (__| |__ | || |
+   /_/ \_\__, |_|\___|____|___|_|
+         |___/                   
+ Multi-Agent Development Orchestrator (`agycli` - Rust Native v0.2.2)
     "#
     );
+}
+
+pub fn print_agy_header(root_path: &Path, auth_opt: Option<&AuthConfig>, pool_size: usize) {
+    print_banner();
+    let user_str = if let Some(auth) = auth_opt {
+        if let Some(u) = &auth.user {
+            format!("{} ({}) [{}]", u.email.clone().unwrap_or_default(), u.name.clone().unwrap_or_default(), u.provider)
+        } else {
+            "[Not Authenticated] (Type /login google)".into()
+        }
+    } else {
+        "[Not Authenticated] (Type /login google)".into()
+    };
+
+    println!(" 📂 Workspace:  {}", root_path.display());
+    println!(" 👤 User:       {}", user_str);
+    println!(" 🤖 Workers:    {} active collaborative agents", pool_size);
+    println!(" ⚡ Mode:       Interactive REPL  |  Type /help for commands\n");
 }
 
 pub fn find_project_root() -> PathBuf {
@@ -153,101 +174,13 @@ pub async fn run_cli() -> anyhow::Result<()> {
                 println!("    - Database: .mag/database.sqlite");
             }
             Commands::Status => {
-                print_banner();
-                let orch = Orchestrator::new(&root_path, &db_path)?;
-                println!("Manager Status: RUNNING");
-                println!("Database:       {:?}", db_path);
-
-                let auth_opt = load_auth_config(&auth_path);
-                if let Some(auth) = auth_opt {
-                    if let Some(user) = auth.user {
-                        println!("Global Auth:    {} ({}) [{}]", user.email.unwrap_or_default(), user.name.unwrap_or_default(), user.provider);
-                    }
-                } else {
-                    println!("Global Auth:    [Not Authenticated] (Use: `agycli login google`)");
-                }
-
-                let pool_mgr = WorkerPoolManager::new();
-                let pool_status = pool_mgr.get_pool_status(orch.config.pool.current_workers);
-                println!("Worker Pool:    {} workers configured\n", pool_status.len());
-
-                println!("{:-<75}", "");
-                println!("{:<12} {:<15} {:<8} {:<15} {:<20}", "AGENT ID", "ROLE", "PORT", "STATUS", "CONTAINER AUTH");
-                println!("{:-<75}", "");
-                for (role, ep) in &orch.config.agents {
-                    let c_auth = load_container_auth(&root_path, &ep.id);
-                    let auth_str = if let Some(a) = c_auth {
-                        a.user.and_then(|u| u.email).unwrap_or_else(|| "[Authenticated]".into())
-                    } else {
-                        "[Inherited]".into()
-                    };
-                    println!("{:<12} {:<15} {:<8} {:<15} {:<20}", ep.id, role, ep.port, "[READY]", auth_str);
-                }
-                println!("{:-<75}", "");
-
-                println!("\nRecent Tasks:");
-                let tasks = orch.storage.list_tasks()?;
-                if tasks.is_empty() {
-                    println!("  (No tasks found in database)");
-                } else {
-                    for t in tasks.iter().rev().take(10) {
-                        println!("  - [{}] {:<12} | {}", t.id, t.status, t.title);
-                    }
-                }
+                show_status(&root_path, &db_path, &auth_path)?;
             }
             Commands::Doctor => {
-                println!("[*] Running EnvDoctor system diagnostics...");
-                let report = EnvDoctor::diagnose();
-                println!("  Diagnostics Report:");
-                for (tool, installed) in &report.tools {
-                    let mark = if *installed { "[✓] Available" } else { "[✗] Missing" };
-                    println!("    - {:<10}: {}", tool, mark);
-                }
-                if report.is_healthy {
-                    println!("\n[✓] Environment check passed! Core development tools are ready.");
-                } else {
-                    println!("\n[!] Issues: {}", report.issues.join(", "));
-                }
+                run_doctor()?;
             }
             Commands::Login { target, token } => {
-                let is_container = target != "google" && target != "token";
-                let container_name = if is_container {
-                    target.clone()
-                } else {
-                    "global".into()
-                };
-
-                println!("[*] Authenticating target: '{}' (Browser login mode)...", target);
-                println!("To authenticate:");
-                println!("  1. Open browser: https://www.google.com/device");
-                println!("  2. Enter verification code: AGY-9942-AUTH");
-                println!("\n[*] Waiting for browser authorization callback...");
-
-                let auth = AuthConfig {
-                    user: Some(AuthUser {
-                        provider: "google".into(),
-                        email: Some(format!("user-{}@google.com", container_name)),
-                        name: Some(format!("AGY User ({})", container_name)),
-                        id: format!("usr-{}", container_name),
-                    }),
-                    token: Some(AuthToken {
-                        access_token: token.unwrap_or_else(|| "ya29.agy_oauth_persistent_token".into()),
-                        refresh_token: Some("1//sample_persistent_refresh_token".into()),
-                        token_type: "Bearer".into(),
-                        expires_at: Some(Utc::now() + chrono::Duration::days(365)),
-                    }),
-                    updated_at: Utc::now(),
-                };
-
-                if is_container {
-                    save_container_auth(&root_path, &container_name, &auth)?;
-                    println!("[✓] Logged in successfully for container '{}'!", container_name);
-                    println!("    Credentials saved to .mag/containers/{}/credentials.json", container_name);
-                    println!("    (Persistent across container restarts and reinstalls)");
-                } else {
-                    save_auth_config(&auth_path, &auth)?;
-                    println!("[✓] Logged in successfully as: {} (Global AGY Session)", auth.user.unwrap().email.unwrap());
-                }
+                perform_login(&root_path, &auth_path, &target, token)?;
             }
             Commands::Logout => {
                 if auth_path.exists() {
@@ -258,34 +191,10 @@ pub async fn run_cli() -> anyhow::Result<()> {
                 }
             }
             Commands::Whoami { container } => {
-                if let Some(c_name) = container {
-                    if let Some(auth) = load_container_auth(&root_path, &c_name) {
-                        if let Some(user) = auth.user {
-                            println!("Authenticated Container [{}]:", c_name);
-                            println!("  Provider: {}", user.provider);
-                            println!("  Email:    {}", user.email.unwrap_or_else(|| "N/A".into()));
-                            println!("  Name:     {}", user.name.unwrap_or_else(|| "N/A".into()));
-                        }
-                    } else {
-                        println!("Container '{}' has no custom credentials. (Inherits global session)", c_name);
-                    }
-                } else if let Some(auth) = load_auth_config(&auth_path) {
-                    if let Some(user) = auth.user {
-                        println!("Authenticated User:");
-                        println!("  Provider: {}", user.provider);
-                        println!("  Email:    {}", user.email.unwrap_or_else(|| "N/A".into()));
-                        println!("  Name:     {}", user.name.unwrap_or_else(|| "N/A".into()));
-                        println!("  User ID:  {}", user.id);
-                    }
-                } else {
-                    println!("Not logged in. Use `agycli login google` to authenticate.");
-                }
+                show_whoami(&root_path, &auth_path, container.as_deref())?;
             }
             Commands::Scale { workers } => {
-                println!("[*] Scaling Worker Agent pool to {} workers...", workers);
-                let pool_mgr = WorkerPoolManager::new();
-                let scaled = pool_mgr.scale_workers(workers)?;
-                println!("[✓] Worker pool scaled successfully to {} active agents!", scaled);
+                scale_workers(workers)?;
             }
             Commands::Task { action } => {
                 let orch = Orchestrator::new(&root_path, &db_path)?;
@@ -318,22 +227,236 @@ pub async fn run_cli() -> anyhow::Result<()> {
             Commands::Run { prompt, workers } => {
                 run_workflow(&prompt, &root_path, &db_path, workers)?;
             }
+            Commands::Interactive => {
+                start_interactive_repl(&root_path, &db_path, &auth_path)?;
+            }
         }
     } else if !cli.prompt_args.is_empty() {
         let prompt = cli.prompt_args.join(" ");
         run_workflow(&prompt, &root_path, &db_path, cli.workers)?;
     } else {
-        print_banner();
-        println!("Usage: mag <command> | agycli <command> | mag \"<prompt>\"\n");
-        println!("Commands:");
-        println!("  init    Initialize a new multi-agent project");
-        println!("  status  Show orchestrator, auth, and worker status");
-        println!("  doctor  Run system diagnostics");
-        println!("  login   Authenticate globally or per-container (agycli login agent-a)");
-        println!("  logout  Log out current user");
-        println!("  whoami  Display authenticated user (agycli whoami [container])");
-        println!("  scale   Scale worker containers (mag scale --workers 5)");
-        println!("  task    Manage tasks");
+        // Launch Interactive AGY-style REPL by default when no arguments given
+        start_interactive_repl(&root_path, &db_path, &auth_path)?;
+    }
+
+    Ok(())
+}
+
+fn show_status(root_path: &Path, db_path: &Path, auth_path: &Path) -> anyhow::Result<()> {
+    print_banner();
+    let orch = Orchestrator::new(root_path, db_path)?;
+    println!("Manager Status: RUNNING");
+    println!("Database:       {:?}", db_path);
+
+    let auth_opt = load_auth_config(auth_path);
+    if let Some(auth) = auth_opt {
+        if let Some(user) = auth.user {
+            println!("Global Auth:    {} ({}) [{}]", user.email.unwrap_or_default(), user.name.unwrap_or_default(), user.provider);
+        }
+    } else {
+        println!("Global Auth:    [Not Authenticated] (Use: `agycli login google`)");
+    }
+
+    let pool_mgr = WorkerPoolManager::new();
+    let pool_status = pool_mgr.get_pool_status(orch.config.pool.current_workers);
+    println!("Worker Pool:    {} workers configured\n", pool_status.len());
+
+    println!("{:-<75}", "");
+    println!("{:<12} {:<15} {:<8} {:<15} {:<20}", "AGENT ID", "ROLE", "PORT", "STATUS", "CONTAINER AUTH");
+    println!("{:-<75}", "");
+    for (role, ep) in &orch.config.agents {
+        let c_auth = load_container_auth(root_path, &ep.id);
+        let auth_str = if let Some(a) = c_auth {
+            a.user.and_then(|u| u.email).unwrap_or_else(|| "[Authenticated]".into())
+        } else {
+            "[Inherited]".into()
+        };
+        println!("{:<12} {:<15} {:<8} {:<15} {:<20}", ep.id, role, ep.port, "[READY]", auth_str);
+    }
+    println!("{:-<75}", "");
+
+    println!("\nRecent Tasks:");
+    let tasks = orch.storage.list_tasks()?;
+    if tasks.is_empty() {
+        println!("  (No tasks found in database)");
+    } else {
+        for t in tasks.iter().rev().take(10) {
+            println!("  - [{}] {:<12} | {}", t.id, t.status, t.title);
+        }
+    }
+    Ok(())
+}
+
+fn run_doctor() -> anyhow::Result<()> {
+    println!("[*] Running EnvDoctor system diagnostics...");
+    let report = EnvDoctor::diagnose();
+    println!("  Diagnostics Report:");
+    for (tool, installed) in &report.tools {
+        let mark = if *installed { "[✓] Available" } else { "[✗] Missing" };
+        println!("    - {:<10}: {}", tool, mark);
+    }
+    if report.is_healthy {
+        println!("\n[✓] Environment check passed! Core development tools are ready.");
+    } else {
+        println!("\n[!] Issues: {}", report.issues.join(", "));
+    }
+    Ok(())
+}
+
+fn perform_login(root_path: &Path, auth_path: &Path, target: &str, token: Option<String>) -> anyhow::Result<()> {
+    let is_container = target != "google" && target != "token";
+    let container_name = if is_container {
+        target.to_string()
+    } else {
+        "global".into()
+    };
+
+    println!("[*] Authenticating target: '{}' (Browser login mode)...", target);
+    println!("To authenticate:");
+    println!("  1. Open browser: https://www.google.com/device");
+    println!("  2. Enter verification code: AGY-9942-AUTH");
+    println!("\n[*] Waiting for browser authorization callback...");
+
+    let auth = AuthConfig {
+        user: Some(AuthUser {
+            provider: "google".into(),
+            email: Some(format!("user-{}@google.com", container_name)),
+            name: Some(format!("AGY User ({})", container_name)),
+            id: format!("usr-{}", container_name),
+        }),
+        token: Some(AuthToken {
+            access_token: token.unwrap_or_else(|| "ya29.agy_oauth_persistent_token".into()),
+            refresh_token: Some("1//sample_persistent_refresh_token".into()),
+            token_type: "Bearer".into(),
+            expires_at: Some(Utc::now() + chrono::Duration::days(365)),
+        }),
+        updated_at: Utc::now(),
+    };
+
+    if is_container {
+        save_container_auth(root_path, &container_name, &auth)?;
+        println!("[✓] Logged in successfully for container '{}'!", container_name);
+        println!("    Credentials saved to .mag/containers/{}/credentials.json", container_name);
+        println!("    (Persistent across container restarts and reinstalls)");
+    } else {
+        save_auth_config(auth_path, &auth)?;
+        println!("[✓] Logged in successfully as: {} (Global AGY Session)", auth.user.unwrap().email.unwrap());
+    }
+    Ok(())
+}
+
+fn show_whoami(root_path: &Path, auth_path: &Path, container: Option<&str>) -> anyhow::Result<()> {
+    if let Some(c_name) = container {
+        if let Some(auth) = load_container_auth(root_path, c_name) {
+            if let Some(user) = auth.user {
+                println!("Authenticated Container [{}]:", c_name);
+                println!("  Provider: {}", user.provider);
+                println!("  Email:    {}", user.email.unwrap_or_else(|| "N/A".into()));
+                println!("  Name:     {}", user.name.unwrap_or_else(|| "N/A".into()));
+            }
+        } else {
+            println!("Container '{}' has no custom credentials. (Inherits global session)", c_name);
+        }
+    } else if let Some(auth) = load_auth_config(auth_path) {
+        if let Some(user) = auth.user {
+            println!("Authenticated User:");
+            println!("  Provider: {}", user.provider);
+            println!("  Email:    {}", user.email.unwrap_or_else(|| "N/A".into()));
+            println!("  Name:     {}", user.name.unwrap_or_else(|| "N/A".into()));
+            println!("  User ID:  {}", user.id);
+        }
+    } else {
+        println!("Not logged in. Use `/login google` or `agycli login google` to authenticate.");
+    }
+    Ok(())
+}
+
+fn scale_workers(workers: usize) -> anyhow::Result<()> {
+    println!("[*] Scaling Worker Agent pool to {} workers...", workers);
+    let pool_mgr = WorkerPoolManager::new();
+    let scaled = pool_mgr.scale_workers(workers)?;
+    println!("[✓] Worker pool scaled successfully to {} active agents!", scaled);
+    Ok(())
+}
+
+pub fn start_interactive_repl(root_path: &PathBuf, db_path: &PathBuf, auth_path: &PathBuf) -> anyhow::Result<()> {
+    let auth_opt = load_auth_config(auth_path);
+    print_agy_header(root_path, auth_opt.as_ref(), 5);
+
+    let stdin = io::stdin();
+    let mut stdout = io::stdout();
+
+    loop {
+        print!("agycli ❯ ");
+        stdout.flush()?;
+
+        let mut input = String::new();
+        if stdin.read_line(&mut input)? == 0 {
+            println!("\nSession terminated. Goodbye!");
+            break;
+        }
+
+        let trimmed = input.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        if trimmed == "/exit" || trimmed == "/quit" {
+            println!("Goodbye!");
+            break;
+        } else if trimmed == "/help" {
+            println!("\nAvailable AGY Slash Commands:");
+            println!("  /status            Show orchestrator, agents, and task status");
+            println!("  /doctor            Run EnvDoctor environment diagnostics");
+            println!("  /login [target]    Authenticate (e.g. /login google, /login agent-a)");
+            println!("  /whoami [cnt]      Show logged in user or container credentials");
+            println!("  /workers [N]       Scale worker pool count (e.g. /workers 4)");
+            println!("  /tasks             List recent tasks and results");
+            println!("  /clear             Clear the terminal screen");
+            println!("  /exit, /quit       Exit the interactive CLI session");
+            println!("  <prompt>           Execute multi-agent autonomous development workflow\n");
+        } else if trimmed == "/status" {
+            let _ = show_status(root_path, db_path, auth_path);
+        } else if trimmed == "/doctor" {
+            let _ = run_doctor();
+        } else if trimmed.starts_with("/login") {
+            let parts: Vec<&str> = trimmed.split_whitespace().collect();
+            let target = parts.get(1).copied().unwrap_or("google");
+            let _ = perform_login(root_path, auth_path, target, None);
+        } else if trimmed.starts_with("/whoami") {
+            let parts: Vec<&str> = trimmed.split_whitespace().collect();
+            let cnt = parts.get(1).copied();
+            let _ = show_whoami(root_path, auth_path, cnt);
+        } else if trimmed.starts_with("/workers") || trimmed.starts_with("/scale") {
+            let parts: Vec<&str> = trimmed.split_whitespace().collect();
+            if let Some(n_str) = parts.get(1) {
+                if let Ok(n) = n_str.parse::<usize>() {
+                    let _ = scale_workers(n);
+                } else {
+                    println!("Usage: /workers <number>");
+                }
+            } else {
+                println!("Usage: /workers <number>");
+            }
+        } else if trimmed == "/tasks" {
+            let orch = Orchestrator::new(root_path, db_path)?;
+            let tasks = orch.storage.list_tasks()?;
+            println!("{:<10} {:<15} {:<10} {:<30}", "TASK ID", "STATUS", "AGENT", "TITLE");
+            println!("{:-<65}", "");
+            for t in tasks {
+                println!("{:<10} {:<15} {:<10} {:<30}", t.id, t.status, t.assigned_agent, t.title);
+            }
+            println!();
+        } else if trimmed == "/clear" {
+            print!("\x1B[2J\x1B[1;1H");
+            stdout.flush()?;
+            let current_auth = load_auth_config(auth_path);
+            print_agy_header(root_path, current_auth.as_ref(), 5);
+        } else {
+            // Natural language development instruction
+            let _ = run_workflow(trimmed, root_path, db_path, None);
+            println!();
+        }
     }
 
     Ok(())
@@ -345,8 +468,7 @@ pub fn run_workflow(
     db_path: &PathBuf,
     workers: Option<usize>,
 ) -> anyhow::Result<()> {
-    print_banner();
-    println!("[*] Received instruction: \"{}\"\n", prompt);
+    println!("\n[*] Received instruction: \"{}\"\n", prompt);
 
     let orch = Orchestrator::new(root_path, db_path)?;
     let target_dir = orch.extract_target_directory(prompt);
