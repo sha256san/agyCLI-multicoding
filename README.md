@@ -122,10 +122,42 @@ agycli ❯
 
 ### ⌨️ 2. コマンドライン（CLI）直接実行モード
 
+#### 🔑 エージェント別 Google OAuth2 認証 (`agycli login <agent-name>`)
+エージェントを指定してログインを実行すると、本家 `agy` と同じ OAuth2 PKCE 認証画面（ASCIIアート & ブラウザ転送URL）が起動し、認証されたアカウントが [`agent.md`](file:///home/guru/agyCLI++/agent.md) に即座に紐付け・同期されます。
+
 ```bash
-# 1. エージェント別ログイン (agent.md 自動同期 & 待機状態化)
-agycli login agent-a          # agent-a にブラウザログイン紐付け
-agycli login agent-b          # agent-b にブラウザログイン紐付け
+$ agycli login agent-a
+```
+
+```text
+     ▄▀▀▄
+    ▀▀▀▀▀▀
+   ▀▀▀▀▀▀▀▀
+  ▄▀▀    ▀▀▄
+ ▄▀▀      ▀▀▄
+
+ Your browser should open automatically. If not:
+
+ https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com&code_challenge=ChINlJI5L3cwf-wMdxY4zhetloIjj5lq792H5-tmL2g_agent-a&code_challenge_method=S256&prompt=consent&redirect_uri=https%3A%2F%2Fantigravity.google%2Foauth-callback&response_type=code&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcclog+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fexperimentsandconfigs+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Faicode+openid&state=DadSgkul3RkXfC0lLdec0Q_agent-a
+
+ Copy and paste the URL or click on the link below:
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ → Click here to authenticate
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+ If you aren't automatically redirected, paste the authorization code below:
+
+ authorization code: [AGY-AUTH-SUCCESS-CALLBACK]
+    
+[✓] Logged in successfully for agent 'agent-a'!
+    Credentials saved to .mag/containers/agent-a/credentials.json
+    [agent.md] Active agent accounts synchronized (Total authenticated: 1)
+    [STANDBY] Agent 'agent-a' is now ready and waiting in standby mode for tasks.
+```
+
+#### 🚀 その他の主要コマンド
+```bash
+# 1. 認証状態の確認 & ログアウト
 agycli whoami                 # グローバル認証ユーザー情報の確認
 agycli whoami agent-a         # 特定エージェントの認証状態確認
 agycli logout                 # ログアウト
