@@ -211,35 +211,73 @@ fn fetch_email_from_token(access_token: &str) -> Option<String> {
     None
 }
 
+pub fn extract_agent_email<P: AsRef<Path>>(agent_dir: P) -> Option<String> {
+    let home_dir = agent_dir.as_ref().join("home/.gemini/antigravity-cli");
+
+    // 1. Check oauth token file if exists
+    let token_path = home_dir.join("antigravity-oauth-token");
+    if token_path.exists() {
+        if let Ok(content) = fs::read_to_string(&token_path) {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(access_token) = val.get("token").and_then(|t| t.get("access_token")).and_then(|v| v.as_str()) {
+                    if let Some(email) = fetch_email_from_token(access_token) {
+                        return Some(email);
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Check logs in log/ directory for "authenticated successfully as <email>" or "applyAuthResult: email=<email>"
+    let log_dir = home_dir.join("log");
+    if log_dir.exists() {
+        if let Ok(entries) = fs::read_dir(&log_dir) {
+            let mut log_files = Vec::new();
+            for entry in entries.flatten() {
+                if entry.path().is_file() {
+                    log_files.push(entry.path());
+                }
+            }
+            log_files.sort_by(|a, b| b.cmp(a)); // Newest first
+
+            for log_file in log_files {
+                if let Ok(log_content) = fs::read_to_string(log_file) {
+                    for line in log_content.lines().rev() {
+                        if let Some(idx) = line.find("authenticated successfully as ") {
+                            let candidate = &line[idx + "authenticated successfully as ".len()..];
+                            let email = candidate.split_whitespace().next().unwrap_or("").trim();
+                            if email.contains('@') {
+                                return Some(email.to_string());
+                            }
+                        } else if let Some(idx) = line.find("applyAuthResult: email=") {
+                            let candidate = &line[idx + "applyAuthResult: email=".len()..];
+                            let email = candidate.split([',', ' ']).next().unwrap_or("").trim();
+                            if email.contains('@') {
+                                return Some(email.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
 pub fn load_container_auth<P: AsRef<Path>>(root: P, container_name: &str) -> Option<mag_common::AuthConfig> {
     let clean_name = container_name.trim_start_matches("mag-");
     let container_dir = root.as_ref().join(".mag/containers").join(clean_name);
     let path = container_dir.join("credentials.json");
     let mut auth = load_auth_config(&path)?;
 
-    // Check if we need to resolve the real email from oauth token
-    let needs_email_resolve = auth.user.as_ref().map(|u| {
-        u.email.as_ref().map(|e| e.starts_with("user-agent") || e.starts_with("user-") || e == "N/A").unwrap_or(true)
-    }).unwrap_or(true);
-
-    if needs_email_resolve {
-        let token_path = container_dir.join("home/.gemini/antigravity-cli/antigravity-oauth-token");
-        if token_path.exists() {
-            if let Ok(token_content) = fs::read_to_string(&token_path) {
-                if let Ok(token_json) = serde_json::from_str::<serde_json::Value>(&token_content) {
-                    if let Some(access_token) = token_json.get("token").and_then(|t| t.get("access_token")).and_then(|v| v.as_str()) {
-                        if let Some(real_email) = fetch_email_from_token(access_token) {
-                            if let Some(ref mut u) = auth.user {
-                                u.email = Some(real_email);
-                            }
-                            if let Some(ref mut t) = auth.token {
-                                t.access_token = access_token.to_string();
-                            }
-                            let _ = save_auth_config(&path, &auth);
-                        }
-                    }
-                }
+    if let Some(real_email) = extract_agent_email(&container_dir) {
+        let is_different = auth.user.as_ref().and_then(|u| u.email.as_ref()) != Some(&real_email);
+        if is_different {
+            if let Some(ref mut u) = auth.user {
+                u.email = Some(real_email);
             }
+            let _ = save_auth_config(&path, &auth);
         }
     }
 

@@ -1,4 +1,4 @@
-# Multi-Agent Development Platform (`mag` / `agycli`) v0.3.0
+# Multi-Agent Development Platform (`mag` / `agycli`) v0.2.2
 
 > **AIを増やすのではなく、AIを組織化する。**  
 > ターミナルを閉じてもAIが自律的に開発を継続し、再接続すると進捗・ログ・結果を確認できるRust製次世代Multi-Agent Development Platform。
@@ -103,7 +103,7 @@ $ agycli
     / _ \/ _` | | (__| |__ | || |
    /_/ \_\__, |_|\___|____|___|_|
          |___/                   
- Multi-Agent Development Platform (`agycli` - Rust Native v0.3.0)
+ Multi-Agent Development Platform (`agycli` - Rust Native v0.2.2)
     
  📂 Workspace:  /home/guru/agyCLI++
  👤 User:       developer@google.com (Google Developer) [google]
@@ -253,7 +253,7 @@ agycli daemon restart         # デーモン再起動
 
 ```text
 agyCLI++/
-├── Cargo.toml                  # Root Cargo Workspace (v0.3.0)
+├── Cargo.toml                  # Root Cargo Workspace (v0.2.2)
 ├── rust-toolchain.toml         # ツールチェーン固定
 ├── mag                         # 統合CLIランチャー
 ├── docker-compose.yml          # コンテナ構成 & 認証ボリューム共有
@@ -291,7 +291,7 @@ agyCLI++/
 │   ├── TODO.md                 # 実装進捗ロードマップ
 │   ├── MEMORY.md               # 知識ベース・ADR・5大開発原則
 │   ├── AGENTS.md               # エージェント行動規範 & JSON出力スキーマ
-│   ├── CHANGELOG.md            # 変更履歴 (v0.3.0)
+│   ├── CHANGELOG.md            # 変更履歴 (v0.2.2)
 │   └── plan.md                 # 全体構想書
 │
 └── project/                    # 実装コードベース & プロトタイプ
