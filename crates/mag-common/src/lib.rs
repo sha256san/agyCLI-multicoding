@@ -155,6 +155,29 @@ pub struct AuthUser {
     pub id: String,
 }
 
+/// Agent authentication status states specified in addplan7.md.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AgentAuthState {
+    Uninitialized,
+    Authenticating,
+    Authenticated,
+    Expired,
+    AuthError,
+}
+
+impl std::fmt::Display for AgentAuthState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AgentAuthState::Uninitialized => write!(f, "UNINITIALIZED"),
+            AgentAuthState::Authenticating => write!(f, "AUTHENTICATING"),
+            AgentAuthState::Authenticated => write!(f, "AUTHENTICATED"),
+            AgentAuthState::Expired => write!(f, "EXPIRED"),
+            AgentAuthState::AuthError => write!(f, "AUTH_ERROR"),
+        }
+    }
+}
+
 /// Stored authentication tokens and expiration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthToken {

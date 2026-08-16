@@ -118,3 +118,25 @@
 - [x] **Manager Daemon 管理 (`agycli daemon [start|stop|status|restart]`)**
   - [x] PID/稼働時間監視と再起動時の一括クラッシュリカバリ
 - [x] **タスク管理サブコマンド (`agycli task [list|status|stop|resume]`)**
+
+---
+
+## 🎯 Agentごとの別アカウント認証・永続ボリューム・安全クリーン ロードマップ (`mddir/addplan7.md` 準拠) 【完了】
+
+- [x] **1 Agent = 1 Container = 1 Account = 1 Persistent Auth Store**
+  - [x] Developer (`agy_developer_auth`), Tester (`agy_tester_auth`), Reviewer (`agy_reviewer_auth`), Security (`agy_security_auth`), Researcher (`agy_researcher_auth`)
+  - [x] `docker-compose.yml` への Named Volume & `restart: unless-stopped` 定義
+- [x] **エージェント認証ライフサイクル CLI (`agycli auth`)**
+  - [x] `agycli auth status [--verbose]`
+  - [x] `agycli auth login <agent>` & `agycli agent auth <agent>`
+  - [x] `agycli auth logout <agent>`
+  - [x] `agycli auth verify <agent>`
+  - [x] `agycli auth list`
+- [x] **安全なクリーン管理コマンド (`agycli clean`)**
+  - [x] `agycli clean containers`
+  - [x] `agycli clean cache`
+  - [x] `agycli clean auth [--agent <agent>]` (確認プロンプトガード付き)
+  - [x] `agycli clean all`
+- [x] **クレデンシャル分離 & クロスアクセス防止テスト**
+  - [x] 単体テスト `test_account_isolation_cross_access` & `test_agent_auth_state_transitions` 実装・全パス
+

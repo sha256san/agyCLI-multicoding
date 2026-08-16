@@ -97,12 +97,82 @@ pub enum Commands {
         #[command(subcommand)]
         action: DaemonCommands,
     },
+    /// Authentication management for agents (status, login, logout, verify, list)
+    Auth {
+        #[command(subcommand)]
+        action: AuthCommands,
+    },
+    /// Agent operations and aliases (e.g. agycli agent auth developer)
+    Agent {
+        #[command(subcommand)]
+        action: AgentCommands,
+    },
+    /// Clean containers, cache, or authentication state
+    Clean {
+        #[command(subcommand)]
+        action: CleanCommands,
+    },
     /// List running and configured agent containers
     Containers,
     /// Alias for containers (list running containers)
     Ps,
     /// Start interactive AGY-style REPL terminal mode
     Interactive,
+}
+
+#[derive(Subcommand)]
+pub enum AuthCommands {
+    /// Show authentication status for all agents
+    Status {
+        #[arg(short, long)]
+        verbose: bool,
+    },
+    /// Log in a specific agent (e.g. developer, tester, reviewer, security, researcher, agent-a)
+    Login {
+        agent: String,
+        #[arg(short, long)]
+        token: Option<String>,
+    },
+    /// Log out a specific agent
+    Logout {
+        agent: String,
+    },
+    /// Verify authentication status and token validity for an agent
+    Verify {
+        agent: String,
+    },
+    /// List all configured agents and their auth status
+    List,
+}
+
+#[derive(Subcommand)]
+pub enum AgentCommands {
+    /// Agent authentication commands (alias for agycli auth login <agent>)
+    Auth {
+        agent: String,
+    },
+    /// List agents
+    List,
+}
+
+#[derive(Subcommand)]
+pub enum CleanCommands {
+    /// Remove stopped containers
+    Containers,
+    /// Clear project cache and scratch files
+    Cache,
+    /// Remove agent authentication state (requires confirmation)
+    Auth {
+        #[arg(short, long)]
+        agent: Option<String>,
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// Clean all containers, cache, and auth (requires confirmation)
+    All {
+        #[arg(short, long)]
+        force: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -287,6 +357,47 @@ pub async fn run_cli() -> anyhow::Result<()> {
                 println!("[✓] Manager Daemon restarted successfully! (PID: {})", info.pid);
             }
         },
+        Some(Commands::Auth { action }) => match action {
+            AuthCommands::Status { verbose } => {
+                show_auth_status(&root_path, verbose)?;
+            }
+            AuthCommands::Login { agent, token } => {
+                let resolved = resolve_agent_target(&agent);
+                perform_login(&root_path, &auth_path, &resolved, token)?;
+            }
+            AuthCommands::Logout { agent } => {
+                logout_agent_auth(&root_path, &agent)?;
+            }
+            AuthCommands::Verify { agent } => {
+                verify_agent_auth(&root_path, &agent)?;
+            }
+            AuthCommands::List => {
+                show_auth_status(&root_path, true)?;
+            }
+        },
+        Some(Commands::Agent { action }) => match action {
+            AgentCommands::Auth { agent } => {
+                let resolved = resolve_agent_target(&agent);
+                perform_login(&root_path, &auth_path, &resolved, None)?;
+            }
+            AgentCommands::List => {
+                show_auth_status(&root_path, true)?;
+            }
+        },
+        Some(Commands::Clean { action }) => match action {
+            CleanCommands::Containers => {
+                run_clean_containers()?;
+            }
+            CleanCommands::Cache => {
+                run_clean_cache(&root_path)?;
+            }
+            CleanCommands::Auth { agent, force } => {
+                run_clean_auth(&root_path, agent.as_deref(), force)?;
+            }
+            CleanCommands::All { force } => {
+                run_clean_all(&root_path, force)?;
+            }
+        },
         Some(Commands::Containers) | Some(Commands::Ps) => {
             show_containers(&root_path)?;
         }
@@ -428,15 +539,170 @@ fn find_agy_binary() -> Option<PathBuf> {
     None
 }
 
-fn perform_login(root_path: &Path, auth_path: &Path, target: &str, token: Option<String>) -> anyhow::Result<()> {
-    let is_container = target != "google" && target != "token";
+pub fn resolve_agent_target(target: &str) -> String {
+    let lower = target.to_lowercase();
+    match lower.as_str() {
+        "developer" | "dev" => "agent-a".to_string(),
+        "tester" | "test" => "agent-b".to_string(),
+        "reviewer" | "review" => "agent-c".to_string(),
+        "security" | "sec" => "agent-d".to_string(),
+        "researcher" | "research" => "agent-e".to_string(),
+        other => other.to_string(),
+    }
+}
+
+pub fn get_agent_role_label(agent_id: &str) -> &'static str {
+    match agent_id {
+        "agent-a" => "Developer",
+        "agent-b" => "Tester",
+        "agent-c" => "Reviewer",
+        "agent-d" => "Security",
+        "agent-e" => "Researcher",
+        _ => "Worker",
+    }
+}
+
+fn show_auth_status(root_path: &Path, verbose: bool) -> anyhow::Result<()> {
+    let logged_in = mag_config::get_logged_in_agents(root_path);
+    let roles = [
+        ("Developer", "agent-a"),
+        ("Tester", "agent-b"),
+        ("Reviewer", "agent-c"),
+        ("Security", "agent-d"),
+        ("Researcher", "agent-e"),
+    ];
+
+    println!("\nAGENT AUTHENTICATION");
+    println!("{:-<50}", "");
+    for (role_name, agent_id) in &roles {
+        let auth_entry = logged_in.iter().find(|(n, _)| n == *agent_id);
+        let status = if auth_entry.is_some() {
+            "AUTHENTICATED"
+        } else {
+            "UNINITIALIZED"
+        };
+
+        if verbose {
+            let email = auth_entry
+                .and_then(|(_, a)| a.user.as_ref())
+                .and_then(|u| u.email.as_deref())
+                .unwrap_or("-");
+            println!("{:<14} {:<16} ({})", role_name, status, email);
+        } else {
+            println!("{:<14} {}", role_name, status);
+        }
+    }
+    println!();
+    Ok(())
+}
+
+fn verify_agent_auth(root_path: &Path, agent_target: &str) -> anyhow::Result<()> {
+    let agent_id = resolve_agent_target(agent_target);
+    let cred_path = root_path.join(".mag/containers").join(&agent_id).join("credentials.json");
+    if cred_path.exists() {
+        let content = std::fs::read_to_string(&cred_path)?;
+        if let Ok(cfg) = serde_json::from_str::<AuthConfig>(&content) {
+            if cfg.is_authenticated() {
+                let user_email = cfg.user.as_ref().and_then(|u| u.email.clone()).unwrap_or_else(|| "Authenticated".into());
+                println!("[✓] Agent '{}' ({}) is AUTHENTICATED: {}", agent_target, agent_id, user_email);
+                return Ok(());
+            }
+        }
+    }
+    println!("[✗] Agent '{}' ({}) is UNINITIALIZED / AUTH_ERROR (Use: agycli auth login {})", agent_target, agent_id, agent_target);
+    Ok(())
+}
+
+fn logout_agent_auth(root_path: &Path, agent_target: &str) -> anyhow::Result<()> {
+    let agent_id = resolve_agent_target(agent_target);
+    let cred_dir = root_path.join(".mag/containers").join(&agent_id);
+    let cred_path = cred_dir.join("credentials.json");
+    if cred_path.exists() {
+        let _ = std::fs::remove_file(&cred_path);
+    }
+    let home_dir = cred_dir.join("home");
+    if home_dir.exists() {
+        let _ = std::fs::remove_dir_all(&home_dir);
+    }
+    mag_config::sync_agent_md(root_path)?;
+    println!("[✓] Logged out agent '{}' ({}). Credentials removed.", agent_target, agent_id);
+    Ok(())
+}
+
+fn run_clean_containers() -> anyhow::Result<()> {
+    let pool_mgr = WorkerPoolManager::new();
+    if pool_mgr.container_mgr.is_docker_available() {
+        let _ = std::process::Command::new("docker")
+            .args(["container", "prune", "-f"])
+            .output();
+    }
+    println!("[✓] Cleaned stopped containers.");
+    Ok(())
+}
+
+fn run_clean_cache(root_path: &Path) -> anyhow::Result<()> {
+    let scratch_dir = root_path.join(".mag/scratch");
+    if scratch_dir.exists() {
+        let _ = std::fs::remove_dir_all(&scratch_dir);
+    }
+    println!("[✓] Cleaned cache and temporary files.");
+    Ok(())
+}
+
+fn run_clean_auth(root_path: &Path, agent_opt: Option<&str>, force: bool) -> anyhow::Result<()> {
+    let target_display = agent_opt.unwrap_or("all agents");
+    if !force {
+        print!("WARNING:\nThis will remove {} authentication state.\n\nContinue? [y/N]: ", target_display);
+        io::stdout().flush()?;
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        if !input.trim().eq_ignore_ascii_case("y") && !input.trim().eq_ignore_ascii_case("yes") {
+            println!("Operation cancelled.");
+            return Ok(());
+        }
+    }
+
+    if let Some(agent) = agent_opt {
+        logout_agent_auth(root_path, agent)?;
+    } else {
+        let containers_dir = root_path.join(".mag/containers");
+        if containers_dir.exists() {
+            let _ = std::fs::remove_dir_all(&containers_dir);
+        }
+        mag_config::sync_agent_md(root_path)?;
+        println!("[✓] Cleaned authentication state for all agents.");
+    }
+    Ok(())
+}
+
+fn run_clean_all(root_path: &Path, force: bool) -> anyhow::Result<()> {
+    if !force {
+        print!("WARNING:\nThis will remove all stopped containers, cache, and ALL agent authentication states.\n\nContinue? [y/N]: ");
+        io::stdout().flush()?;
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        if !input.trim().eq_ignore_ascii_case("y") && !input.trim().eq_ignore_ascii_case("yes") {
+            println!("Operation cancelled.");
+            return Ok(());
+        }
+    }
+    run_clean_containers()?;
+    run_clean_cache(root_path)?;
+    run_clean_auth(root_path, None, true)?;
+    println!("[✓] Full clean completed.");
+    Ok(())
+}
+
+fn perform_login(root_path: &Path, auth_path: &Path, raw_target: &str, token: Option<String>) -> anyhow::Result<()> {
+    let resolved = resolve_agent_target(raw_target);
+    let is_container = resolved != "google" && resolved != "token";
     let container_name = if is_container {
-        target.to_string()
+        resolved.clone()
     } else {
         "global".into()
     };
 
-    println!("[*] Initializing real Antigravity (`agy`) interactive authentication for agent: '{}'...", container_name);
+    println!("[*] Initializing real Antigravity (`agy`) interactive authentication for agent: '{}'...", raw_target);
 
     let mut user_email = None;
 
@@ -752,6 +1018,8 @@ pub fn start_interactive_repl(root_path: &PathBuf, db_path: &PathBuf, auth_path:
             println!("\nAvailable AGY Slash Commands:");
             println!("  /status            Show orchestrator, agents, containers, and task status");
             println!("  /containers, /ps   List active and configured agent containers");
+            println!("  /auth [status|...] Agent authentication status, login, logout, verify");
+            println!("  /clean [all|...]   Clean stopped containers, cache, or auth state");
             println!("  /doctor            Run EnvDoctor environment diagnostics");
             println!("  /login [target]    Authenticate (e.g. /login google, /login agent-a)");
             println!("  /whoami [cnt]      Show logged in user or container credentials");
@@ -767,6 +1035,52 @@ pub fn start_interactive_repl(root_path: &PathBuf, db_path: &PathBuf, auth_path:
             let _ = show_status(root_path, db_path, auth_path);
         } else if trimmed == "/containers" || trimmed == "/ps" {
             let _ = show_containers(root_path);
+        } else if trimmed.starts_with("/auth") {
+            let parts: Vec<&str> = trimmed.split_whitespace().collect();
+            let sub = parts.get(1).copied().unwrap_or("status");
+            match sub {
+                "status" => {
+                    let verbose = parts.get(2).map(|v| *v == "--verbose" || *v == "-v").unwrap_or(false);
+                    let _ = show_auth_status(root_path, verbose);
+                }
+                "login" => {
+                    let target = parts.get(2).copied().unwrap_or("google");
+                    let _ = perform_login(root_path, auth_path, target, None);
+                }
+                "logout" => {
+                    if let Some(agent) = parts.get(2) {
+                        let _ = logout_agent_auth(root_path, agent);
+                    } else {
+                        println!("Usage: /auth logout <agent>");
+                    }
+                }
+                "verify" => {
+                    if let Some(agent) = parts.get(2) {
+                        let _ = verify_agent_auth(root_path, agent);
+                    } else {
+                        println!("Usage: /auth verify <agent>");
+                    }
+                }
+                "list" => {
+                    let _ = show_auth_status(root_path, true);
+                }
+                _ => {
+                    println!("Usage: /auth [status|login|logout|verify|list]");
+                }
+            }
+        } else if trimmed.starts_with("/clean") {
+            let parts: Vec<&str> = trimmed.split_whitespace().collect();
+            let sub = parts.get(1).copied().unwrap_or("all");
+            match sub {
+                "containers" => { let _ = run_clean_containers(); }
+                "cache" => { let _ = run_clean_cache(root_path); }
+                "auth" => {
+                    let agent = parts.get(2).copied();
+                    let _ = run_clean_auth(root_path, agent, false);
+                }
+                "all" => { let _ = run_clean_all(root_path, false); }
+                _ => { println!("Usage: /clean [containers|cache|auth|all]"); }
+            }
         } else if trimmed == "/doctor" {
             let _ = run_doctor();
         } else if trimmed.starts_with("/login") {

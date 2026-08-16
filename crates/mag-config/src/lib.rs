@@ -246,6 +246,10 @@ pub fn update_agent_md<P: AsRef<Path>>(root: P) -> Result<usize, std::io::Error>
     Ok(agents.len())
 }
 
+pub fn sync_agent_md<P: AsRef<Path>>(root: P) -> Result<usize, std::io::Error> {
+    update_agent_md(root)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

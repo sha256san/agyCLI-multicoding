@@ -222,7 +222,24 @@ agent-e        researcher     [○] STOPPED            - (Not Logged In)        
 cnt-a          collaborative  [●] READY / STANDBY    user-cnt-a@google.com            agycli-worker:latest     
 ```
 
-#### ⑥ 常駐 Daemon 管理
+#### ⑥ エージェント認証管理 (`agycli auth`)
+```bash
+agycli auth status              # 全エージェントの認証状態サマリー
+agycli auth status --verbose    # 認証メールアドレスを含む詳細表示
+agycli auth login developer     # Developer (agent-a) 専用アカウントでログイン
+agycli auth verify tester       # Tester (agent-b) の認証有効性チェック
+agycli auth logout reviewer     # Reviewer (agent-c) の認証情報を安全に削除
+```
+
+#### ⑦ 安全クリーン (`agycli clean`)
+```bash
+agycli clean containers         # 停止済みコンテナの一括削除
+agycli clean cache              # キャッシュ・スクラッチ領域の削除
+agycli clean auth --agent dev   # 特定エージェントの認証状態削除 (確認ガード付き)
+agycli clean all                # 全体クリーン (確認ガード付き)
+```
+
+#### ⑧ 常駐 Daemon 管理
 ```bash
 agycli daemon status          # デーモン稼働状況・PID・アクティブタスク数
 agycli daemon start           # デーモン起動 & クラッシュリカバリ
@@ -244,10 +261,10 @@ agyCLI++/
 ├── task.md                     # 実行タスクDAG・リアルタイムログ・検証レポート (自動生成)
 │
 ├── crates/                     # Rust 13-Crate コア実装
-│   ├── mag-common/             # 共通型・Enum (AgentRole, TaskStatus, TaskResult, AuthConfig)
+│   ├── mag-common/             # 共通型・Enum (AgentRole, TaskStatus, TaskResult, AuthConfig, AgentAuthState)
 │   ├── mag-config/             # TOML設定ローダー & agent.md 自動同期管理
 │   ├── mag-task/               # タスクモデル・状態マシン・DAG依存関係
-│   ├── mag-agent/              # エージェント定義・Capabilities・コマンド許可ポリシー
+│   ├── mag-agent/              # エージェント定義・Capabilities・コマンド許可ポリシー・認証分離
 │   ├── mag-logging/            # 構造化JSONロギング
 │   ├── mag-storage/            # SQLite 永続化 (tasks, events, sessions, agents)
 │   ├── mag-git/                # Git Worktree / ブランチ / コミット / マージ管理
@@ -256,12 +273,13 @@ agyCLI++/
 │   ├── mag-worker/             # 実行エンジン (CommandExecutor) & ロール別ハンドラー
 │   ├── mag-scheduler/          # タスクDAGスケジューラ & Work-Stealing 協調キュー
 │   ├── mag-manager/            # Manager オーケストレーター, Daemon, Session (Attach/Detach), Crash Recovery
-│   └── mag-cli/                # 統合CLIバイナリ (`mag` & `agycli`, Detached, Attach, Logs, REPL)
+│   └── mag-cli/                # 統合CLIバイナリ (`mag` & `agycli`, Auth, Clean, Detached, Attach, Logs, REPL)
 │
 ├── agents/                     # TOMLエージェント定義 (developer, tester, reviewer, security, researcher)
 ├── containers/                 # Dockerfile定義 (agycli プリインストール済みコンテナ)
 │
 ├── mddir/                      # プロジェクトドキュメント体系
+│   ├── addplan7.md             # Agent別アカウント認証・コンテナ永続化・クリーン仕様書
 │   ├── addbigplan.md           # ターミナル切断永続化・Attach/Detach・Daemon・Event Log 全体仕様書
 │   ├── addplan6.md             # agent.md事前認証・ログイン中割当・task.md詳細ログ仕様書
 │   ├── addplan5.md             # 対話型 REPL / TUI & スラッシュコマンド仕様書
@@ -285,6 +303,7 @@ agyCLI++/
 
 ## 📚 関連ドキュメント
 
+- 🔑 [第7次拡張仕様書: Agent別認証・コンテナ永続化・クリーン (addplan7.md)](file:///home/guru/agyCLI++/mddir/addplan7.md)
 - 🚀 [全体拡張仕様書 (addbigplan.md)](file:///home/guru/agyCLI++/mddir/addbigplan.md)
 - 📋 [第6次拡張仕様書 (addplan6.md)](file:///home/guru/agyCLI++/mddir/addplan6.md)
 - 🖥️ [第5次拡張仕様書 (addplan5.md)](file:///home/guru/agyCLI++/mddir/addplan5.md)

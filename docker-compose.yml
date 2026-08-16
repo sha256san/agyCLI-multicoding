@@ -4,10 +4,12 @@ services:
       context: .
       dockerfile: containers/developer/Dockerfile
     container_name: mag-manager
+    restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:
       - .:/workspace
+      - manager_state:/agent-state
     command: ["python3", "-m", "project.src.cli", "start-server"]
     depends_on:
       - agent-a
@@ -21,10 +23,13 @@ services:
       context: .
       dockerfile: containers/developer/Dockerfile
     container_name: mag-agent-a
+    restart: unless-stopped
     ports:
       - "8001:8001"
     volumes:
       - .:/workspace
+      - developer_auth:/home/agent/.gemini
+      - developer_state:/agent-state
     command: ["python3", "-m", "project.src.worker.server", "--agent-id", "agent-a", "--role", "developer", "--port", "8001"]
 
   agent-b:
@@ -32,10 +37,13 @@ services:
       context: .
       dockerfile: containers/tester/Dockerfile
     container_name: mag-agent-b
+    restart: unless-stopped
     ports:
       - "8002:8002"
     volumes:
       - .:/workspace
+      - tester_auth:/home/agent/.gemini
+      - tester_state:/agent-state
     command: ["python3", "-m", "project.src.worker.server", "--agent-id", "agent-b", "--role", "tester", "--port", "8002"]
 
   agent-c:
@@ -43,10 +51,13 @@ services:
       context: .
       dockerfile: containers/reviewer/Dockerfile
     container_name: mag-agent-c
+    restart: unless-stopped
     ports:
       - "8003:8003"
     volumes:
       - .:/workspace
+      - reviewer_auth:/home/agent/.gemini
+      - reviewer_state:/agent-state
     command: ["python3", "-m", "project.src.worker.server", "--agent-id", "agent-c", "--role", "reviewer", "--port", "8003"]
 
   agent-d:
@@ -54,10 +65,13 @@ services:
       context: .
       dockerfile: containers/security/Dockerfile
     container_name: mag-agent-d
+    restart: unless-stopped
     ports:
       - "8004:8004"
     volumes:
       - .:/workspace
+      - security_auth:/home/agent/.gemini
+      - security_state:/agent-state
     command: ["python3", "-m", "project.src.worker.server", "--agent-id", "agent-d", "--role", "security", "--port", "8004"]
 
   agent-e:
@@ -65,8 +79,35 @@ services:
       context: .
       dockerfile: containers/researcher/Dockerfile
     container_name: mag-agent-e
+    restart: unless-stopped
     ports:
       - "8005:8005"
     volumes:
       - .:/workspace
+      - researcher_auth:/home/agent/.gemini
+      - researcher_state:/agent-state
     command: ["python3", "-m", "project.src.worker.server", "--agent-id", "agent-e", "--role", "researcher", "--port", "8005"]
+
+volumes:
+  manager_state:
+    name: agy_manager_state
+  developer_auth:
+    name: agy_developer_auth
+  developer_state:
+    name: agy_developer_state
+  tester_auth:
+    name: agy_tester_auth
+  tester_state:
+    name: agy_tester_state
+  reviewer_auth:
+    name: agy_reviewer_auth
+  reviewer_state:
+    name: agy_reviewer_state
+  security_auth:
+    name: agy_security_auth
+  security_state:
+    name: agy_security_state
+  researcher_auth:
+    name: agy_researcher_auth
+  researcher_state:
+    name: agy_researcher_state

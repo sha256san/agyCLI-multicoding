@@ -22,8 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Queryable via `agycli logs <task-id>`.
   - **Manager Daemon Lifecycle (`agycli daemon [start|stop|status|restart]`)**:
     - Persistent daemon tracking PID, uptime, active tasks, and automatic crash recovery on startup.
-  - **Comprehensive Task Operations CLI**:
-    - `agycli task list`, `agycli task status <id>`, `agycli task stop <id>`, `agycli task resume <id>`.
+  - **Per-Agent Dedicated Account Authentication & Isolation (`mddir/addplan7.md`)**:
+    - `agycli auth [status|login|logout|verify|list]`: Full agent authentication lifecycle commands.
+    - `agycli auth status [--verbose]`: Formatted agent authentication table with privacy masking and verbose email inspection.
+    - `agycli auth login <agent>` & `agycli agent auth <agent>`: Authenticates dedicated accounts per role/container (`developer`, `tester`, `reviewer`, `security`, `researcher`).
+    - `agycli clean [containers|cache|auth|all]`: Safe cleanup with confirmation guards.
+    - Named Docker Volume mappings: `agy_developer_auth`, `agy_tester_auth`, `agy_reviewer_auth`, `agy_security_auth`, `agy_researcher_auth`.
+    - Unit tests for credential isolation and cross-access prevention.
 
 ---
 

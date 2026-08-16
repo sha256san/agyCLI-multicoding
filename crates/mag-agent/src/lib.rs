@@ -87,9 +87,30 @@ impl AgentDefinition {
     }
 }
 
+/// Agent credential and volume isolation manager according to addplan7.md.
+pub struct AgentAuthIsolation;
+
+impl AgentAuthIsolation {
+    pub fn get_agent_auth_volume_name(agent_id: &str) -> String {
+        match agent_id {
+            "agent-a" | "developer" => "agy_developer_auth".to_string(),
+            "agent-b" | "tester" => "agy_tester_auth".to_string(),
+            "agent-c" | "reviewer" => "agy_reviewer_auth".to_string(),
+            "agent-d" | "security" => "agy_security_auth".to_string(),
+            "agent-e" | "researcher" => "agy_researcher_auth".to_string(),
+            other => format!("agy_{}_auth", other),
+        }
+    }
+
+    pub fn is_cross_access_forbidden(source_agent: &str, target_agent: &str) -> bool {
+        source_agent != target_agent
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mag_common::AgentAuthState;
 
     #[test]
     fn test_command_allowlist_check() {
@@ -97,5 +118,24 @@ mod tests {
         assert!(dev.is_command_allowed("cargo build"));
         assert!(dev.is_command_allowed("/usr/bin/git status"));
         assert!(!dev.is_command_allowed("rm -rf /"));
+    }
+
+    #[test]
+    fn test_account_isolation_cross_access() {
+        let dev_volume = AgentAuthIsolation::get_agent_auth_volume_name("developer");
+        let test_volume = AgentAuthIsolation::get_agent_auth_volume_name("tester");
+        assert_eq!(dev_volume, "agy_developer_auth");
+        assert_eq!(test_volume, "agy_tester_auth");
+        assert_ne!(dev_volume, test_volume);
+        assert!(AgentAuthIsolation::is_cross_access_forbidden("developer", "tester"));
+        assert!(!AgentAuthIsolation::is_cross_access_forbidden("developer", "developer"));
+    }
+
+    #[test]
+    fn test_agent_auth_state_transitions() {
+        let state = AgentAuthState::Uninitialized;
+        assert_eq!(state.to_string(), "UNINITIALIZED");
+        let auth_state = AgentAuthState::Authenticated;
+        assert_eq!(auth_state.to_string(), "AUTHENTICATED");
     }
 }
