@@ -127,6 +127,8 @@ impl Orchestrator {
         let tasks = vec![t1, t2, t3, t4, t5];
         for t in &tasks {
             self.storage.save_task(t)?;
+            let _ = self.storage.record_event(&t.id, &t.assigned_agent, "TASK_CREATED", &t.title);
+            let _ = self.storage.record_event(&t.id, &t.assigned_agent, "AGENT_ASSIGNED", &format!("Assigned to {} for role {}", t.assigned_agent, t.role));
         }
 
         Ok(tasks)
@@ -252,6 +254,9 @@ impl Orchestrator {
             metadata,
         };
 
+        let _ = self.storage.record_event(&task.id, &task.assigned_agent, "AGENT_STARTED", &format!("Agent {} started role {}", task.assigned_agent, task.role));
+        let _ = self.storage.update_agent_heartbeat(&task.assigned_agent, &task.role.to_string(), "RUNNING", None, Some(&task.id));
+
         let result = execute_task_for_agent(&agent, &task_req);
         let (verdict, next_status) = self.evaluator.evaluate(task, &result);
 
@@ -259,7 +264,29 @@ impl Orchestrator {
         task.result = Some(result.clone());
         if matches!(verdict, EvaluationVerdict::Retry { .. }) {
             task.retry_count += 1;
+            let _ = self.storage.record_event(&task.id, &task.assigned_agent, "SELF_REPAIR_RETRY", &format!("Retry attempt {}/{}", task.retry_count, task.max_retries));
         }
+
+        if !result.files_changed.is_empty() {
+            let _ = self.storage.record_event(&task.id, &task.assigned_agent, "CODE_CHANGED", &result.files_changed);
+        }
+
+        match task.role {
+            AgentRole::Tester => {
+                let event_type = if result.is_success() { "TEST_PASSED" } else { "TEST_FAILED" };
+                let _ = self.storage.record_event(&task.id, &task.assigned_agent, event_type, &result.summary);
+            }
+            AgentRole::Reviewer => {
+                let _ = self.storage.record_event(&task.id, &task.assigned_agent, "REVIEW_COMPLETED", &result.summary);
+            }
+            AgentRole::Security => {
+                let _ = self.storage.record_event(&task.id, &task.assigned_agent, "SECURITY_SCAN", &result.summary);
+            }
+            _ => {}
+        }
+
+        let _ = self.storage.record_event(&task.id, &task.assigned_agent, "AGENT_FINISHED", &result.summary);
+        let _ = self.storage.update_agent_heartbeat(&task.assigned_agent, &task.role.to_string(), "IDLE", None, None);
 
         self.storage.save_task(task)?;
         let _ = self.append_task_log(task, &result);
@@ -294,6 +321,9 @@ impl Orchestrator {
             let git_mgr = GitManager::new(eff_dir);
             if !git_mgr.is_repo() {
                 let _ = git_mgr.init_repo();
+            }
+            for t in &final_tasks {
+                let _ = self.storage.record_event(&t.id, "manager", "TASK_COMPLETED", &"Completed and verified");
             }
         }
 

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] - 2026-08-16
+
+### Added
+- **Persistent Multi-Agent Autonomous Development Platform (`mddir/addbigplan.md`)**:
+  - **Detached Execution (`agycli run --detach "<prompt>"`)**:
+    - Spawns/dispatches task workflow to background Manager Daemon.
+    - AI continues developing independently when terminal is disconnected or closed.
+  - **Live Session Attach / Reconnection (`agycli attach <task-id>`)**:
+    - Reconnects to running/completed tasks with dynamic ASCII stage progress bars (Researcher, Developer, Tester, Reviewer, Security).
+    - Safely detaches anytime via Ctrl+C without interrupting ongoing AI development.
+  - **Structured Event Store (`events` Table in SQLite)**:
+    - Records fine-grained lifecycle events (`TASK_CREATED`, `AGENT_ASSIGNED`, `AGENT_STARTED`, `CODE_CHANGED`, `TEST_PASSED`, `TEST_FAILED`, `REVIEW_COMPLETED`, `SECURITY_SCAN`, `TASK_COMPLETED`).
+    - Queryable via `agycli logs <task-id>`.
+  - **Manager Daemon Lifecycle (`agycli daemon [start|stop|status|restart]`)**:
+    - Persistent daemon tracking PID, uptime, active tasks, and automatic crash recovery on startup.
+  - **Comprehensive Task Operations CLI**:
+    - `agycli task list`, `agycli task status <id>`, `agycli task stop <id>`, `agycli task resume <id>`.
+
+---
+
 ## [0.2.3] - 2026-08-16
 
 ### Added

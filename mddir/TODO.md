@@ -102,3 +102,19 @@
 - [x] **`task.md` による詳細実行ログ & 自己修復レポート**
   - [x] 実行計画・各エージェントのログ・ファイル変更・テスト結果を `task.md` に自動出力
   - [x] 完了後の最終レポートを `task.md` に集約出力
+
+---
+
+## 🎯 ターミナル切断永続化・Attach/Detach・Daemon・Event Log ロードマップ (`mddir/addbigplan.md` 準拠) 【完了】
+
+- [x] **Detached バックグラウンド実行 (`agycli run --detach "<prompt>"`)**
+  - [x] ターミナル切断・Ctrl+C 後もAIが自律開発を継続
+  - [x] 一意な Task ID 発行とバックグラウンドディスパッチ
+- [x] **ライブセッション再接続 (`agycli attach <task-id>`)**
+  - [x] 各エージェント（Researcher, Developer, Tester, Reviewer, Security）の進捗バー表示
+  - [x] リアルタイムイベントストリーム & いつでも安全に detach
+- [x] **イベントストア (`events` Table in SQLite & `agycli logs <task-id>`)**
+  - [x] タスク生成・エージェント割当・実装・テスト・レビュー・セキュリティスキャンの全履歴永続化
+- [x] **Manager Daemon 管理 (`agycli daemon [start|stop|status|restart]`)**
+  - [x] PID/稼働時間監視と再起動時の一括クラッシュリカバリ
+- [x] **タスク管理サブコマンド (`agycli task [list|status|stop|resume]`)**

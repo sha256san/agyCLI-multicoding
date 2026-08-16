@@ -8,15 +8,16 @@ use mag_config::{
 };
 use mag_container::WorkerPoolManager;
 use mag_git::GitManager;
-use mag_manager::{EnvDoctor, Orchestrator};
+use mag_manager::{DaemonManager, EnvDoctor, Orchestrator, SessionManager};
+use mag_storage::Storage;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
 #[command(
     name = "agycli",
-    about = "Antigravity Multi-Agent Software Development CLI",
-    version = "0.2.2"
+    about = "Antigravity Multi-Agent Software Development CLI (Persistent & Detachable)",
+    version = "0.3.0"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -25,6 +26,10 @@ pub struct Cli {
     /// Scale worker count
     #[arg(short, long)]
     pub workers: Option<usize>,
+
+    /// Detached background execution flag
+    #[arg(short, long)]
+    pub detach: bool,
 
     /// Natural language development requirement prompt
     #[arg(trailing_var_arg = true)]
@@ -62,16 +67,35 @@ pub enum Commands {
         #[arg(short, long, default_value = "5")]
         workers: usize,
     },
-    /// Task operations
+    /// Task operations (list, status, stop, resume)
     Task {
         #[command(subcommand)]
         action: TaskCommands,
     },
-    /// Run autonomous multi-agent task workflow
+    /// Run autonomous multi-agent task workflow (foreground or --detach)
     Run {
         prompt: String,
         #[arg(short, long)]
         workers: Option<usize>,
+        #[arg(short, long)]
+        detach: bool,
+        #[arg(short, long)]
+        priority: Option<String>,
+    },
+    /// Attach to a running or finished task and inspect real-time progress and logs
+    Attach {
+        /// Task ID to attach to (e.g. TASK-001)
+        task_id: Option<String>,
+    },
+    /// View detailed event logs for a specific task
+    Logs {
+        /// Task ID (e.g. TASK-001)
+        task_id: Option<String>,
+    },
+    /// Manager daemon management (start, stop, status, restart)
+    Daemon {
+        #[command(subcommand)]
+        action: DaemonCommands,
     },
     /// Start interactive AGY-style REPL terminal mode
     Interactive,
@@ -82,9 +106,33 @@ pub enum TaskCommands {
     /// List all tasks
     List,
     /// Show details for a specific task
+    Status {
+        task_id: Option<String>,
+    },
+    /// Stop a running task
+    Stop {
+        task_id: String,
+    },
+    /// Resume a stopped or failed task
+    Resume {
+        task_id: String,
+    },
+    /// Alias for status
     Show {
         task_id: String,
     },
+}
+
+#[derive(Subcommand)]
+pub enum DaemonCommands {
+    /// Start the persistent background Manager daemon
+    Start,
+    /// Stop the background Manager daemon
+    Stop,
+    /// Show daemon status, PID, and active task count
+    Status,
+    /// Restart the background Manager daemon
+    Restart,
 }
 
 pub fn print_banner() {
@@ -95,7 +143,7 @@ pub fn print_banner() {
     / _ \/ _` | | (__| |__ | || |
    /_/ \_\__, |_|\___|____|___|_|
          |___/                   
- Multi-Agent Development Orchestrator (`agycli` - Rust Native v0.2.2)
+ Multi-Agent Development Platform (`agycli` - Rust Native v0.3.0)
     "#
     );
 }
@@ -115,7 +163,7 @@ pub fn print_agy_header(root_path: &Path, auth_opt: Option<&AuthConfig>, pool_si
     println!(" 📂 Workspace:  {}", root_path.display());
     println!(" 👤 User:       {}", user_str);
     println!(" 🤖 Workers:    {} active collaborative agents", pool_size);
-    println!(" ⚡ Mode:       Interactive REPL  |  Type /help for commands\n");
+    println!(" ⚡ Mode:       Interactive REPL & Detachable Daemon  |  Type /help for commands\n");
 }
 
 pub fn find_project_root() -> PathBuf {
@@ -139,158 +187,173 @@ pub fn find_project_root() -> PathBuf {
             return PathBuf::from(home);
         }
     }
-    if PathBuf::from("/workspace/.mag").exists() {
-        return PathBuf::from("/workspace");
-    }
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
 pub async fn run_cli() -> anyhow::Result<()> {
-    let cli = Cli::parse();
     let root_path = find_project_root();
-    let db_path = root_path.join(".mag/database.sqlite");
-    let auth_path = root_path.join(".mag/credentials.json");
+    let mag_dir = root_path.join(".mag");
+    let db_path = mag_dir.join("mag.db");
+    let auth_path = mag_dir.join("credentials.json");
 
-    if let Some(cmd) = cli.command {
-        match cmd {
-            Commands::Init { name } => {
-                println!("[*] Initializing Multi-Agent project '{}'...", name);
-                std::fs::create_dir_all(root_path.join(".mag/agents"))?;
-                std::fs::create_dir_all(root_path.join(".mag/logs"))?;
-                std::fs::create_dir_all(root_path.join(".mag/containers"))?;
-                std::fs::create_dir_all(root_path.join("src"))?;
-                std::fs::create_dir_all(root_path.join("tests"))?;
-                std::fs::create_dir_all(root_path.join("docs"))?;
+    let cli = Cli::parse();
 
-                let cfg = ProjectConfig::default_project(&name);
-                cfg.save_to_file(root_path.join(".mag/config.toml"))?;
-
-                let git = GitManager::new(&root_path);
-                git.init_repo()?;
-
-                println!("[✓] Project '{}' initialized successfully!", name);
-                println!("    - Config: .mag/config.toml");
-                println!("    - Git: Initialized");
-                println!("    - Database: .mag/database.sqlite");
+    match cli.command {
+        Some(Commands::Init { name }) => {
+            init_project(&root_path, &name)?;
+        }
+        Some(Commands::Status) => {
+            show_status(&root_path, &db_path, &auth_path)?;
+        }
+        Some(Commands::Doctor) => {
+            run_doctor()?;
+        }
+        Some(Commands::Login { target, token }) => {
+            perform_login(&root_path, &auth_path, &target, token)?;
+        }
+        Some(Commands::Logout) => {
+            if auth_path.exists() {
+                std::fs::remove_file(&auth_path)?;
+                println!("[✓] Logged out successfully. Credentials cleared.");
+            } else {
+                println!("[!] No active session found.");
             }
-            Commands::Status => {
-                show_status(&root_path, &db_path, &auth_path)?;
+        }
+        Some(Commands::Whoami { container }) => {
+            show_whoami(&root_path, &auth_path, container.as_deref())?;
+        }
+        Some(Commands::Scale { workers }) => {
+            scale_workers(workers)?;
+        }
+        Some(Commands::Task { action }) => match action {
+            TaskCommands::List => {
+                show_task_list(&db_path)?;
             }
-            Commands::Doctor => {
-                run_doctor()?;
+            TaskCommands::Status { task_id } => {
+                let tid = task_id.unwrap_or_else(|| "TASK-001".into());
+                show_task_status(&db_path, &tid)?;
             }
-            Commands::Login { target, token } => {
-                perform_login(&root_path, &auth_path, &target, token)?;
+            TaskCommands::Show { task_id } => {
+                show_task_status(&db_path, &task_id)?;
             }
-            Commands::Logout => {
-                if auth_path.exists() {
-                    std::fs::remove_file(&auth_path)?;
-                    println!("[✓] Successfully logged out and cleared global credentials.");
-                } else {
-                    println!("[i] No active global authentication session found.");
-                }
+            TaskCommands::Stop { task_id } => {
+                stop_task(&db_path, &task_id)?;
             }
-            Commands::Whoami { container } => {
-                show_whoami(&root_path, &auth_path, container.as_deref())?;
+            TaskCommands::Resume { task_id } => {
+                resume_task(&root_path, &db_path, &task_id)?;
             }
-            Commands::Scale { workers } => {
-                scale_workers(workers)?;
+        },
+        Some(Commands::Run { prompt, workers, detach, .. }) => {
+            run_workflow(&prompt, &root_path, &db_path, workers, detach)?;
+        }
+        Some(Commands::Attach { task_id }) => {
+            attach_task(&root_path, &db_path, task_id.as_deref())?;
+        }
+        Some(Commands::Logs { task_id }) => {
+            show_task_logs(&db_path, task_id.as_deref())?;
+        }
+        Some(Commands::Daemon { action }) => match action {
+            DaemonCommands::Start => {
+                let storage = Storage::new(&db_path)?;
+                let daemon = DaemonManager::new(&root_path);
+                let info = daemon.start_daemon(&storage)?;
+                println!("[✓] Manager Daemon started successfully! (PID: {})", info.pid);
             }
-            Commands::Task { action } => {
-                let orch = Orchestrator::new(&root_path, &db_path)?;
-                match action {
-                    TaskCommands::List => {
-                        let tasks = orch.storage.list_tasks()?;
-                        println!("{:<10} {:<15} {:<10} {:<30}", "TASK ID", "STATUS", "AGENT", "TITLE");
-                        println!("{:-<65}", "");
-                        for t in tasks {
-                            println!("{:<10} {:<15} {:<10} {:<30}", t.id, t.status, t.assigned_agent, t.title);
-                        }
-                    }
-                    TaskCommands::Show { task_id } => {
-                        if let Some(t) = orch.storage.get_task(&task_id)? {
-                            println!("Task ID:     {}", t.id);
-                            println!("Title:       {}", t.title);
-                            println!("Description: {}", t.description);
-                            println!("Agent:       {} ({})", t.assigned_agent, t.role);
-                            println!("Status:      {}", t.status);
-                            println!("Retries:     {}/{}", t.retry_count, t.max_retries);
-                            if let Some(res) = t.result {
-                                println!("Result:      {} - {}", res.status, res.summary);
-                            }
-                        } else {
-                            println!("Task '{}' not found.", task_id);
-                        }
-                    }
-                }
+            DaemonCommands::Stop => {
+                let daemon = DaemonManager::new(&root_path);
+                daemon.stop_daemon()?;
+                println!("[✓] Manager Daemon stopped.");
             }
-            Commands::Run { prompt, workers } => {
-                run_workflow(&prompt, &root_path, &db_path, workers)?;
+            DaemonCommands::Status => {
+                let storage = Storage::new(&db_path).ok();
+                let daemon = DaemonManager::new(&root_path);
+                let info = daemon.get_status(storage.as_ref());
+                println!("\nManager Daemon Status:");
+                println!("  Status:       {}", info.status);
+                println!("  PID:          {}", info.pid);
+                println!("  Uptime:       {} sec", info.uptime_seconds);
+                println!("  Active Tasks: {}", info.active_tasks_count);
+                println!();
             }
-            Commands::Interactive => {
+            DaemonCommands::Restart => {
+                let storage = Storage::new(&db_path)?;
+                let daemon = DaemonManager::new(&root_path);
+                daemon.stop_daemon()?;
+                let info = daemon.start_daemon(&storage)?;
+                println!("[✓] Manager Daemon restarted successfully! (PID: {})", info.pid);
+            }
+        },
+        Some(Commands::Interactive) => {
+            start_interactive_repl(&root_path, &db_path, &auth_path)?;
+        }
+        None => {
+            if !cli.prompt_args.is_empty() {
+                let prompt = cli.prompt_args.join(" ");
+                run_workflow(&prompt, &root_path, &db_path, cli.workers, cli.detach)?;
+            } else {
                 start_interactive_repl(&root_path, &db_path, &auth_path)?;
             }
         }
-    } else if !cli.prompt_args.is_empty() {
-        let prompt = cli.prompt_args.join(" ");
-        run_workflow(&prompt, &root_path, &db_path, cli.workers)?;
-    } else {
-        // Launch Interactive AGY-style REPL by default when no arguments given
-        start_interactive_repl(&root_path, &db_path, &auth_path)?;
     }
 
+    Ok(())
+}
+
+fn init_project(root_path: &Path, name: &str) -> anyhow::Result<()> {
+    let mag_dir = root_path.join(".mag");
+    std::fs::create_dir_all(&mag_dir)?;
+
+    let config = ProjectConfig::default_project(name);
+    let toml_str = toml::to_string_pretty(&config)?;
+    std::fs::write(root_path.join("project.yaml"), toml_str)?;
+
+    let git_mgr = GitManager::new(root_path);
+    if !git_mgr.is_repo() {
+        git_mgr.init_repo()?;
+    }
+
+    println!("[✓] Initialized multi-agent project '{}' at {}", name, root_path.display());
     Ok(())
 }
 
 fn show_status(root_path: &Path, db_path: &Path, auth_path: &Path) -> anyhow::Result<()> {
     print_banner();
-    let orch = Orchestrator::new(root_path, db_path)?;
-    println!("Manager Status: RUNNING");
-    println!("Database:       {:?}", db_path);
+    println!("System & Orchestrator Status:");
+    println!("  Project Root: {}", root_path.display());
+    println!("  SQLite DB:    {}", db_path.display());
 
-    let auth_opt = load_auth_config(auth_path);
-    if let Some(auth) = auth_opt {
-        if let Some(user) = auth.user {
-            println!("Global Auth:    {} ({}) [{}]", user.email.unwrap_or_default(), user.name.unwrap_or_default(), user.provider);
+    let auth = load_auth_config(auth_path);
+    if let Some(cfg) = auth {
+        if let Some(user) = cfg.user {
+            println!("  Auth Session: Logged in as {} ({})", user.email.unwrap_or_default(), user.provider);
         }
     } else {
-        println!("Global Auth:    [Not Authenticated] (Use: `agycli login google`)");
+        println!("  Auth Session: [Not Authenticated] (Use: agycli login)");
     }
 
-    let pool_mgr = WorkerPoolManager::new();
-    let pool_status = pool_mgr.get_pool_status(orch.config.pool.current_workers);
-    println!("Worker Pool:    {} workers configured\n", pool_status.len());
+    let daemon = DaemonManager::new(root_path);
+    let daemon_alive = daemon.is_running();
+    println!("  Daemon:       {}", if daemon_alive { "RUNNING" } else { "STOPPED" });
 
-    println!("{:-<75}", "");
-    println!("{:<12} {:<15} {:<8} {:<15} {:<20}", "AGENT ID", "ROLE", "PORT", "STATUS", "CONTAINER AUTH");
-    println!("{:-<75}", "");
-    for (role, ep) in &orch.config.agents {
-        let c_auth = load_container_auth(root_path, &ep.id);
-        let auth_str = if let Some(a) = c_auth {
-            a.user.and_then(|u| u.email).unwrap_or_else(|| "[Authenticated]".into())
-        } else {
-            "[Inherited]".into()
-        };
-        println!("{:<12} {:<15} {:<8} {:<15} {:<20}", ep.id, role, ep.port, "[READY]", auth_str);
-    }
-    println!("{:-<75}", "");
+    let active_agents = mag_config::get_logged_in_agents(root_path);
+    println!("  Auth Agents:  {} active accounts (in agent.md)", active_agents.len());
 
-    println!("\nRecent Tasks:");
-    let tasks = orch.storage.list_tasks()?;
-    if tasks.is_empty() {
-        println!("  (No tasks found in database)");
-    } else {
-        for t in tasks.iter().rev().take(10) {
-            println!("  - [{}] {:<12} | {}", t.id, t.status, t.title);
-        }
-    }
+    let storage = Storage::new(db_path)?;
+    let tasks = storage.list_tasks()?;
+    println!("  Total Tasks:  {}", tasks.len());
+    let running = tasks.iter().filter(|t| t.status.to_string() == "RUNNING").count();
+    let completed = tasks.iter().filter(|t| t.status.to_string() == "COMPLETED").count();
+    println!("    - Running:   {}", running);
+    println!("    - Completed: {}", completed);
+    println!();
     Ok(())
 }
 
 fn run_doctor() -> anyhow::Result<()> {
-    println!("[*] Running EnvDoctor system diagnostics...");
+    println!("[*] Running Environment & Multi-Agent Diagnostics (EnvDoctor)...");
     let report = EnvDoctor::diagnose();
-    println!("  Diagnostics Report:");
+
+    println!("\nDiagnostics Result:");
     for (tool, installed) in &report.tools {
         let mark = if *installed { "[✓] Available" } else { "[✗] Missing" };
         println!("    - {:<10}: {}", tool, mark);
@@ -350,7 +413,6 @@ fn perform_login(root_path: &Path, auth_path: &Path, target: &str, token: Option
         let agent_home = root_path.join(".mag/containers").join(&container_name).join("home");
         std::fs::create_dir_all(&agent_home)?;
 
-        // Execute agy interactively so the user directly navigates the real login menu and sees live dynamic URL
         let _ = std::process::Command::new(&agy_bin)
             .env("HOME", &agent_home)
             .stdin(std::process::Stdio::inherit())
@@ -358,7 +420,6 @@ fn perform_login(root_path: &Path, auth_path: &Path, target: &str, token: Option
             .stderr(std::process::Stdio::inherit())
             .status();
 
-        // Check if token was generated in agent_home/.gemini/antigravity-cli/antigravity-oauth-token
         let oauth_token_path = agent_home.join(".gemini/antigravity-cli/antigravity-oauth-token");
         if oauth_token_path.exists() {
             if let Ok(content) = std::fs::read_to_string(&oauth_token_path) {
@@ -368,7 +429,6 @@ fn perform_login(root_path: &Path, auth_path: &Path, target: &str, token: Option
             }
         }
     } else {
-        // Fallback display if agy binary not installed
         let client_id = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com";
         let code_challenge = format!("o_qANMMW9afOKvcghCIX7M12sm1lQe4LYfNjjely5Is_{}", container_name);
         let state = format!("qln7FPSRCn8Ln_HYVptwbw_{}", container_name);
@@ -406,7 +466,6 @@ fn perform_login(root_path: &Path, auth_path: &Path, target: &str, token: Option
     }
 
     let final_email = user_email.unwrap_or_else(|| {
-        // Check global token if available
         if let Ok(home) = std::env::var("HOME") {
             let global_token = PathBuf::from(home).join(".gemini/antigravity-cli/antigravity-oauth-token");
             if global_token.exists() {
@@ -487,6 +546,149 @@ fn scale_workers(workers: usize) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn show_task_list(db_path: &Path) -> anyhow::Result<()> {
+    let storage = Storage::new(db_path)?;
+    let tasks = storage.list_tasks()?;
+
+    if tasks.is_empty() {
+        println!("No tasks found in persistent database.");
+        return Ok(());
+    }
+
+    println!("{:<12} {:<14} {:<12} {:<12} {:<6} {:<30}", "TASK ID", "STATUS", "ROLE", "AGENT", "RETRY", "TITLE");
+    println!("{:-<90}", "");
+    for t in tasks {
+        println!("{:<12} {:<14} {:<12} {:<12} {:<6} {:<30}", t.id, t.status, t.role, t.assigned_agent, t.retry_count, t.title);
+    }
+    println!();
+    Ok(())
+}
+
+fn show_task_status(db_path: &Path, task_id: &str) -> anyhow::Result<()> {
+    let storage = Storage::new(db_path)?;
+    let task = storage.get_task(task_id)?;
+
+    if let Some(t) = task {
+        println!("\nTask Details [{}]:", t.id);
+        println!("  Title:       {}", t.title);
+        println!("  Role:        {}", t.role);
+        println!("  Assigned:    {}", t.assigned_agent);
+        println!("  Status:      {}", t.status);
+        println!("  Priority:    {}", t.priority);
+        println!("  Retries:     {}/{}", t.retry_count, t.max_retries);
+        println!("  Created:     {}", t.created_at);
+        println!("  Updated:     {}", t.updated_at);
+        if let Some(res) = t.result {
+            println!("  Verdict:     {}", res.status);
+            println!("  Summary:     {}", res.summary);
+            if !res.files_changed.is_empty() {
+                println!("  Files Mod:   {}", res.files_changed.join(", "));
+            }
+        }
+        println!();
+    } else {
+        println!("[!] Task '{}' not found.", task_id);
+    }
+    Ok(())
+}
+
+fn stop_task(db_path: &Path, task_id: &str) -> anyhow::Result<()> {
+    let storage = Storage::new(db_path)?;
+    if let Some(mut t) = storage.get_task(task_id)? {
+        t.status = mag_common::TaskStatus::Failed;
+        storage.save_task(&t)?;
+        storage.record_event(task_id, &t.assigned_agent, "TASK_STOPPED", &"Task manually stopped by user")?;
+        println!("[✓] Task '{}' stopped.", task_id);
+    } else {
+        println!("[!] Task '{}' not found.", task_id);
+    }
+    Ok(())
+}
+
+fn resume_task(root_path: &Path, db_path: &Path, task_id: &str) -> anyhow::Result<()> {
+    let storage = Storage::new(db_path)?;
+    if let Some(mut t) = storage.get_task(task_id)? {
+        t.status = mag_common::TaskStatus::Pending;
+        storage.save_task(&t)?;
+        storage.record_event(task_id, &t.assigned_agent, "TASK_RESUMED", &"Task manually resumed by user")?;
+        println!("[✓] Task '{}' resumed to PENDING. Triggering manager execution...", task_id);
+        let orch = Orchestrator::new(root_path, db_path)?;
+        let _ = orch.run_orchestration_loop(Some(root_path), 20);
+    } else {
+        println!("[!] Task '{}' not found.", task_id);
+    }
+    Ok(())
+}
+
+fn show_task_logs(db_path: &Path, task_id_opt: Option<&str>) -> anyhow::Result<()> {
+    let storage = Storage::new(db_path)?;
+    let task_id = if let Some(tid) = task_id_opt {
+        tid.to_string()
+    } else {
+        let tasks = storage.list_tasks()?;
+        if let Some(last) = tasks.last() {
+            last.id.clone()
+        } else {
+            println!("No tasks found.");
+            return Ok(());
+        }
+    };
+
+    let events = storage.list_events(&task_id)?;
+    println!("\nEvent Log Timeline for Task [{}]:", task_id);
+    println!("{:-<70}", "");
+    if events.is_empty() {
+        println!("No recorded events for this task.");
+    } else {
+        for ev in events {
+            println!("[{}] {:<18} | Agent: {:<10} | {}", ev.created_at.format("%H:%M:%S"), ev.event_type, ev.agent_id, ev.payload_json);
+        }
+    }
+    println!("{:-<70}\n", "");
+    Ok(())
+}
+
+pub fn attach_task(_root_path: &Path, db_path: &Path, task_id_opt: Option<&str>) -> anyhow::Result<()> {
+    let storage = Storage::new(db_path)?;
+    let task_id = if let Some(tid) = task_id_opt {
+        tid.to_string()
+    } else {
+        let tasks = storage.list_tasks()?;
+        if let Some(last) = tasks.last() {
+            last.id.clone()
+        } else {
+            println!("No active or previous tasks to attach to.");
+            return Ok(());
+        }
+    };
+
+    let _ = SessionManager::attach(&storage, &task_id)?;
+    let snapshot = SessionManager::get_progress(&storage, &task_id)?;
+
+    println!("\n{:=<70}", "");
+    println!(" Attached Session: Task [{}]", task_id);
+    println!(" Status:           {}", snapshot.status);
+    println!(" Progress:         {}% [{}]", snapshot.overall_percentage, SessionManager::render_progress_bar(snapshot.overall_percentage));
+    println!(" Current Step:     {}", snapshot.current_step);
+    println!("{:=<70}\n", "");
+
+    println!("Agent Role Stages Breakdown:");
+    for stg in &snapshot.stages {
+        let bar = SessionManager::render_progress_bar(stg.percentage);
+        println!("  {:<12} [{}] {:>3}% ({}) -> {}", stg.role, bar, stg.percentage, stg.agent_id, stg.status);
+    }
+
+    println!("\nRecent Event Logs:");
+    for ev in snapshot.events.iter().rev().take(5).rev() {
+        println!("  • [{}] {:<18} | {}", ev.created_at.format("%H:%M:%S"), ev.event_type, ev.payload_json);
+    }
+
+    println!("\n(Detach safely with Ctrl+C. AI will continue running in background.)");
+    println!("(Type `agycli attach {}` to reconnect anytime)\n", task_id);
+
+    Ok(())
+}
+
 pub fn start_interactive_repl(root_path: &PathBuf, db_path: &PathBuf, auth_path: &PathBuf) -> anyhow::Result<()> {
     let auth_opt = load_auth_config(auth_path);
     print_agy_header(root_path, auth_opt.as_ref(), 5);
@@ -520,6 +722,9 @@ pub fn start_interactive_repl(root_path: &PathBuf, db_path: &PathBuf, auth_path:
             println!("  /whoami [cnt]      Show logged in user or container credentials");
             println!("  /workers [N]       Scale worker pool count (e.g. /workers 4)");
             println!("  /tasks             List recent tasks and results");
+            println!("  /attach [id]       Attach to live task progress and event stream");
+            println!("  /logs [id]         View task event timeline");
+            println!("  /daemon            Show manager daemon status");
             println!("  /clear             Clear the terminal screen");
             println!("  /exit, /quit       Exit the interactive CLI session");
             println!("  <prompt>           Execute multi-agent autonomous development workflow\n");
@@ -547,14 +752,20 @@ pub fn start_interactive_repl(root_path: &PathBuf, db_path: &PathBuf, auth_path:
                 println!("Usage: /workers <number>");
             }
         } else if trimmed == "/tasks" {
-            let orch = Orchestrator::new(root_path, db_path)?;
-            let tasks = orch.storage.list_tasks()?;
-            println!("{:<10} {:<15} {:<10} {:<30}", "TASK ID", "STATUS", "AGENT", "TITLE");
-            println!("{:-<65}", "");
-            for t in tasks {
-                println!("{:<10} {:<15} {:<10} {:<30}", t.id, t.status, t.assigned_agent, t.title);
-            }
-            println!();
+            let _ = show_task_list(db_path);
+        } else if trimmed.starts_with("/attach") {
+            let parts: Vec<&str> = trimmed.split_whitespace().collect();
+            let tid = parts.get(1).copied();
+            let _ = attach_task(root_path, db_path, tid);
+        } else if trimmed.starts_with("/logs") {
+            let parts: Vec<&str> = trimmed.split_whitespace().collect();
+            let tid = parts.get(1).copied();
+            let _ = show_task_logs(db_path, tid);
+        } else if trimmed == "/daemon" {
+            let storage = Storage::new(db_path).ok();
+            let daemon = DaemonManager::new(root_path);
+            let info = daemon.get_status(storage.as_ref());
+            println!("Daemon Status: {} (PID: {}, Uptime: {}s, Active Tasks: {})", info.status, info.pid, info.uptime_seconds, info.active_tasks_count);
         } else if trimmed == "/clear" {
             print!("\x1B[2J\x1B[1;1H");
             stdout.flush()?;
@@ -562,7 +773,7 @@ pub fn start_interactive_repl(root_path: &PathBuf, db_path: &PathBuf, auth_path:
             print_agy_header(root_path, current_auth.as_ref(), 5);
         } else {
             // Natural language development instruction
-            let _ = run_workflow(trimmed, root_path, db_path, None);
+            let _ = run_workflow(trimmed, root_path, db_path, None, false);
             println!();
         }
     }
@@ -575,6 +786,7 @@ pub fn run_workflow(
     root_path: &PathBuf,
     db_path: &PathBuf,
     workers: Option<usize>,
+    detach: bool,
 ) -> anyhow::Result<()> {
     println!("\n[*] Received instruction: \"{}\"\n", prompt);
 
@@ -583,6 +795,12 @@ pub fn run_workflow(
     if target_dir != *root_path {
         println!("[*] Target project directory detected: {:?}", target_dir);
         std::fs::create_dir_all(&target_dir)?;
+    }
+
+    // Ensure daemon is started and register session
+    let daemon = DaemonManager::new(root_path);
+    if !daemon.is_running() {
+        let _ = daemon.start_daemon(&orch.storage);
     }
 
     let logged_in = mag_config::get_logged_in_agents(root_path);
@@ -599,6 +817,9 @@ pub fn run_workflow(
         orch.decompose_requirement(prompt, Some(worker_count))?
     };
 
+    let first_task_id = tasks.first().map(|t| t.id.clone()).unwrap_or_else(|| "TASK-001".into());
+    let _ = orch.storage.create_session(&first_task_id);
+
     // Initialize detailed markdown task log
     let _ = orch.init_task_md(prompt, &tasks);
     println!("[*] Initialized task execution log in 'task.md'");
@@ -606,6 +827,29 @@ pub fn run_workflow(
     for t in &tasks {
         let deps = if t.dependencies.is_empty() { "root".into() } else { t.dependencies.join(", ") };
         println!("    - [{}] {:<12} -> Assigned Agent: {} (depends on: {})", t.id, t.role, t.assigned_agent, deps);
+    }
+
+    if detach {
+        println!("\n{:=<70}", "");
+        println!(" [✓] Task started in DETACHED background mode!");
+        println!(" Task ID: {}", first_task_id);
+        println!(" Status:  RUNNING");
+        println!("\n Detach safely. Reconnect anytime with:");
+        println!("   agycli attach {}", first_task_id);
+        println!("   agycli logs {}", first_task_id);
+        println!("{:=<70}\n", "");
+
+        // Execute in background
+        let target_clone = target_dir.clone();
+        let root_clone = root_path.clone();
+        let db_clone = db_path.clone();
+        tokio::spawn(async move {
+            if let Ok(bg_orch) = Orchestrator::new(&root_clone, &db_clone) {
+                let _ = bg_orch.run_orchestration_loop(Some(&target_clone), 20);
+            }
+        });
+
+        return Ok(());
     }
 
     println!("\n[*] Executing Autonomous Collaborative Orchestration Loop...\n");

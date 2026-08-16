@@ -1,12 +1,14 @@
-//! Manager Agent orchestration engine for `mag`.
-
+pub mod daemon;
 pub mod diagnostics;
 pub mod evaluator;
 pub mod orchestrator;
+pub mod session;
 
+pub use daemon::{DaemonInfo, DaemonManager};
 pub use diagnostics::{EnvDoctor, JpCargoAnalyzer};
 pub use evaluator::{EvaluationVerdict, ResultEvaluator};
 pub use orchestrator::{Orchestrator, OrchestratorError};
+pub use session::{SessionManager, StageProgress, TaskProgressSnapshot};
 
 #[cfg(test)]
 mod tests {

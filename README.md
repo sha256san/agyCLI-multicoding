@@ -1,58 +1,68 @@
-# Multi-Agent Development Orchestrator (`mag` / `agycli`) v0.2.3
+# Multi-Agent Development Platform (`mag` / `agycli`) v0.3.0
 
 > **AIを増やすのではなく、AIを組織化する。**  
-> 複数のAIエージェントが独立したコンテナ環境で協調し、自律的にソフトウェアを開発・検証・統合するRust製次世代オーケストレーションプラットフォーム。
+> ターミナルを閉じてもAIが自律的に開発を継続し、再接続すると進捗・ログ・結果を確認できるRust製次世代Multi-Agent Development Platform。
 
 ---
 
 ## 📖 概要
 
-**Multi-Agent Development Orchestrator (`mag` / `agycli`)** は、単一のAIに依存するのではなく、**Manager（統括）**、**Developer（実装）**、**Tester（テスト）**、**Reviewer（レビュー）**、**Security（セキュリティ）**、**Researcher（調査）** の専門エージェントを組織化し、ソフトウェア開発ライフサイクル（要件分析→タスクDAG分解→実装→テスト→レビュー→セキュリティ診断→自己修復→Gitマージ）を自律実行するシステムです。
+**Multi-Agent Development Platform (`mag` / `agycli`)** は、単一のAIに依存するのではなく、**Manager（統括）**、**Developer（実装）**、**Tester（テスト）**、**Reviewer（レビュー）**、**Security（セキュリティ）**、**Researcher（調査）** の専門エージェントを組織化し、ソフトウェア開発ライフサイクル（要件分析→タスクDAG分解→実装→テスト→レビュー→セキュリティ診断→自己修復→Gitマージ）を自律実行するシステムです。
 
-Rust製13 Crateワークスペースにより、高い信頼性、メモリ安全性、高速な並列実行基盤、**`agy` ネイティブの対話型ターミナル REPL（TUI）**、および **`agent.md` / `task.md` による完全な実行・ログ追跡** を提供します。
+Rust製13 Crateワークスペースにより、高い信頼性、メモリ安全性、高速な並列実行基盤、**`agy` ネイティブの対話型ターミナル REPL（TUI）**、**バックグラウンド常駐デーモン & Detached 実行**、および **`attach` によるリアルタイム進捗復元** を提供します。
 
 ```text
-                        Manager (Rust / Ubuntu 26.04)
-                                      │
-          ┌───────────────────────────┼───────────────────────────┐
-          │ (Task DAG Decomposition)  │                           │
-          ▼                           ▼                           ▼
-      Researcher                  Developer                    Tester
-      (Agent E)                   (Agent A)                  (Agent B)
-          │                           │                           │
-          └───────────────────────────┼───────────────────────────┘
-                                      │
-          ┌───────────────────────────┴───────────────────────────┐
-          ▼                                                       ▼
-       Reviewer                                                Security
-      (Agent C)                                               (Agent D)
-          │                                                       │
-          └───────────────────────────┬───────────────────────────┘
-                                      ▼
-                         Manager (Evaluation & Merge)
-                                      │
-                              ┌───────┴───────┐
-                              ▼               ▼
-                         Self-Repair        Merge
-                          (Retry <=3)      (Main)
+                    User Terminal (agycli)
+                              │
+              ┌───────────────┴───────────────┐
+              │ agycli run --detach "<prompt>"│
+              │ agycli attach <task-id>       │
+              │ agycli task list / status     │
+              │ agycli logs <task-id>         │
+              │ agycli daemon [start|status]  │
+              └───────────────┬───────────────┘
+                              │ (Attach / Detach / Query)
+                              ▼
+         ┌────────────────────────────────────────┐
+         │       Persistent Manager Daemon        │
+         │                                        │
+         │  • Task Manager (State machine)        │
+         │  • Session Manager (Attach/Detach)     │
+         │  • Agent Scheduler (Dynamic DAG/Queue) │
+         │  • Event Store (Structured Event Bus)  │
+         │  • Crash Recovery & Heartbeat Engine   │
+         └───────────────────┬────────────────────┘
+                             │
+             ┌───────────────┼───────────────┐
+             │ (SQLite DB: .mag/mag.db)      │
+             ▼                               ▼
+   ┌───────────────────┐           ┌───────────────────┐
+   │ Persistent SQLite │           │ Authenticated     │
+   │  • tasks          │           │ Multi-Agent Pool  │
+   │  • sessions       │           │  • Researcher     │
+   │  • agents         │           │  • Developer      │
+   │  • events         │           │  • Tester         │
+   │  • logs           │           │  • Reviewer       │
+   └───────────────────┘           │  • Security       │
+                                   └───────────────────┘
 ```
 
 ---
 
 ## ✨ 主な特徴
 
-- 🏢 **組織化された役割分担**: 5つの特化ロール（実装/テスト/レビュー/セキュリティ/調査）をDAG（有向非巡回グラフ）で連携。
+- 🚀 **ターミナル切断永続化 (Detached Execution)**: `agycli run --detach` でタスクを開始すると、ターミナルを閉じたり PC を切断してもAIがバックグラウンドで開発を継続。
+- 🔌 **ライブセッション再接続 (`agycli attach`)**: いつでもタスクへ再接続し、各ロール（Researcher, Developer, Tester, Reviewer, Security）のASCII進捗バーとリアルタイムログを確認可能。Ctrl+C でいつでも安全に detach 可能。
+- 📜 **構造化イベントストア (Event Log & Timeline)**: `events` テーブルに全ライフサイクルイベント（生成、割当、実装差分、テスト合否、レビュー、セキュリティ診断）を完全記録。`agycli logs <task-id>` で時系列タイムラインを表示。
+- ⚙️ **常駐 Manager Daemon (`agycli daemon`)**: PID監視、稼働時間計測、アクティブタスク追跡、およびクラッシュ時の一括自動復旧（Crash Recovery）を標準装備。
+- 🏢 **組織化された役割分担**: 5つの特化ロールをDAG（有向非巡回グラフ）で連携。
 - 🦀 **Rust-Native 13 Crate 構成**: 高速・安全・モジュール分離されたCargo Workspace設計。
 - 🖥️ **`agy` 互換の対話型ターミナル REPL**: 引数なしで起動すると、常駐プロンプト `agycli ❯ ` が起動し、チャット感覚でスラッシュコマンドや開発指示を実行可能。
 - 📋 **`agent.md` による事前認証 & アカウント管理**: `agycli login <agent-name>` でログインしたアカウントをエージェントに紐付け、待機状態を `agent.md` に常時記録。Manager はログイン中エージェントへタスクを自動割り振り。
 - 📝 **`task.md` による詳細実行記録 & 自己修復レポート**: タスクDAG計画、各エージェントのログ、変更ファイル、テスト結果、自己修復履歴をリアルタイムで `task.md` に出力。
-- 📦 **全コンテナへの `agycli` 自動インストール**: 各Workerコンテナ内に `agycli` がプリインストールされ、コンテナ内からも完全操作可能。
 - 🔑 **コンテナ個別ログイン & 認証永続化**: コンテナ停止・再起動・再インストール後も認証情報を自動維持（Zero Auth Loss）。
 - 🤝 **動的マルチロール & 協調型タスクキュー**: ワーカー数が少数（例: 2台）でも、複数ロールを柔軟に兼任し、空きワーカーがタスクを自律取得（Work-Stealing）。
 - 🔄 **自己修復 (Self-Repair) & 自動 `main` マージ**: テスト・レビュー失敗時の自動修正（最大3回）と、全パス時の自動ブランチマージ。
-- 🌳 **Git Worktree 分離**: Agent/Taskごとに専用作業領域を割り当て、並列実行時のファイル競合を物理的に防止。
-- 🛡️ **厳格な安全装置**: コマンドホワイトリスト、危険コマンド検知、タイムアウト制限、人間確認ゲートを標準装備。
-- 🧩 **診断ツール連携**: `envdoctor` (環境起因エラー診断) や `jpcargo` (Rust日本語エラー解析) との連携。
 
 ---
 
@@ -60,7 +70,7 @@ Rust製13 Crateワークスペースにより、高い信頼性、メモリ安�
 
 | エージェント | ロール | 担当内容 |
 |---|---|---|
-| **Manager** | 全体統括 | 要件分析、`agent.md` 確認、タスクDAG分解・割り振り、品質評価、Gitマージ |
+| **Manager** | 全体統括 & Daemon | 要件分析、`agent.md` 確認、タスクDAG分解・割り振り、品質評価、Gitマージ、Daemon管理 |
 | **Agent A (Developer)** | 実装 | ソースコード作成、バグ修正、リファクタリング、コミット |
 | **Agent B (Tester)** | テスト | 単体・結合テスト、ビルド検証、回帰テスト実行 |
 | **Agent C (Reviewer)** | レビュー | 静的解析、可読性、保守性、設計妥当性、パフォーマンス検証 |
@@ -76,7 +86,6 @@ Rust製13 Crateワークスペースにより、高い信頼性、メモリ安�
 cargo build --workspace --release
 cargo install --path crates/mag-cli
 ```
-> ※ `agycli` および `mag` が `~/.cargo/bin/` にインストールされ、任意のディレクトリから実行可能になります。
 
 ---
 
@@ -94,12 +103,12 @@ $ agycli
     / _ \/ _` | | (__| |__ | || |
    /_/ \_\__, |_|\___|____|___|_|
          |___/                   
- Multi-Agent Development Orchestrator (`agycli` - Rust Native v0.2.3)
+ Multi-Agent Development Platform (`agycli` - Rust Native v0.3.0)
     
  📂 Workspace:  /home/guru/agyCLI++
  👤 User:       developer@google.com (Google Developer) [google]
- 🤖 Workers:    3 active authenticated agents (in agent.md)
- ⚡ Mode:       Interactive REPL  |  Type /help for commands
+ 🤖 Workers:    4 active authenticated agents (in agent.md)
+ ⚡ Mode:       Interactive REPL & Detachable Daemon  |  Type /help for commands
 
 agycli ❯ 
 ```
@@ -108,81 +117,103 @@ agycli ❯
 | コマンド | 動作内容 |
 |---|---|
 | `/help` | 利用可能なスラッシュコマンド一覧と使い方の表示 |
-| `/status` | エージェント・コンテナ認証・タスク稼働状況一覧 |
+| `/status` | オーケストレーター、エージェント、デーモン、タスク状況一覧 |
 | `/doctor` | `EnvDoctor` システム環境・ツール診断の実行 |
 | `/login [target]` | Google 認証および特定エージェント（`agent-a` など）のブラウザ認証ログイン（`agent.md` 自動同期） |
 | `/whoami [cnt]` | ログイン中のユーザー情報・コンテナ認証情報の確認 |
 | `/workers [N]` | ワーカーコンテナ数の動的スケーリング（例: `/workers 4`） |
 | `/tasks` | 最近のタスク履歴・ステータス一覧の表示 |
+| `/attach [id]` | バックグラウンドタスクへの再接続・進捗確認 |
+| `/logs [id]` | タスクのイベントタイムライン表示 |
+| `/daemon` | Manager Daemon の稼働ステータス確認 |
 | `/clear` | ターミナル画面クリア & ヘッダー再描画 |
 | `/exit` / `/quit` | 対話型セッションの終了 |
 | `<自然言語指示>` | プロンプトを入力すると、5-Agent DAG 自律開発ループを実行し `task.md` に全ログを出力 |
 
 ---
 
-### ⌨️ 2. コマンドライン（CLI）直接実行モード
+### ⌨️ 2. バックグラウンド自律開発 & Attach / Detach ワークフロー
 
-#### 🔑 エージェント別 Google OAuth2 認証 (`agycli login <agent-name>`)
-エージェントを指定してログインを実行すると、本家 `agy` と同じ OAuth2 PKCE 認証画面（ASCIIアート & ブラウザ転送URL）が起動し、認証されたアカウントが [`agent.md`](file:///home/guru/agyCLI++/agent.md) に即座に紐付け・同期されます。
-
+#### ① バックグラウンド（Detached）で開発タスクを開始
 ```bash
-$ agycli login agent-a
+$ agycli run --detach "/home/guru/agytest に高速な数値計算モジュールを実装して"
+
+======================================================================
+ [✓] Task started in DETACHED background mode!
+ Task ID: TASK-001
+ Status:  RUNNING
+
+ Detach safely. Reconnect anytime with:
+   agycli attach TASK-001
+   agycli logs TASK-001
+======================================================================
 ```
+> ※ ここでターミナルを閉じても、AIエージェント達は自律的に開発を継続します。
 
-```text
-[*] Spawning background 'agy' CLI authentication for agent: 'agent-a'...
-[*] Automatically selecting login method '1. Google OAuth' in background agy session...
-
-     ▄▀▀▄
-    ▀▀▀▀▀▀
-   ▀▀▀▀▀▀▀▀
-  ▄▀▀    ▀▀▄
- ▄▀▀      ▀▀▄
-
- Your browser should open automatically. If not:
-
- https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com&code_challenge=o_qANMMW9afOKvcghCIX7M12sm1lQe4LYfNjjely5Is_agent-a&code_challenge_method=S256&prompt=consent&redirect_uri=https%3A%2F%2Fantigravity.google%2Foauth-callback&response_type=code&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcclog+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fexperimentsandconfigs+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Faicode+openid&state=qln7FPSRCn8Ln_HYVptwbw_agent-a
-
- Copy and paste the URL or click on the link below:
- ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
- → Click here to authenticate
- ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
-
- If you aren't automatically redirected, paste the authorization code below:
-
- authorization code: [AGY-AUTH-SUCCESS-CALLBACK]
-    
-[✓] Logged in successfully for agent 'agent-a'!
-    Credentials saved to .mag/containers/agent-a/credentials.json
-    [agent.md] Active agent accounts synchronized (Total authenticated: 1)
-    [STANDBY] Agent 'agent-a' is now ready and waiting in standby mode for tasks.
-```
-
-#### 🚀 その他の主要コマンド
+#### ② タスク一覧の確認
 ```bash
-# 1. 認証状態の確認 & ログアウト
-agycli whoami                 # グローバル認証ユーザー情報の確認
-agycli whoami agent-a         # 特定エージェントの認証状態確認
-agycli logout                 # ログアウト
+$ agycli task list
 
-# 2. ワーカーコンテナ数の動的スケーリング (可変プール)
-agycli scale --workers 8      # ワーカー数を動的に8台へスケール
-
-# 3. システム環境診断 (EnvDoctor)
-agycli doctor
-
-# 4. プロジェクトの初期化 & ステータス確認
-agycli init my-project
-agycli status
-
-# 5. 自然言語による開発タスク自律実行 (task.md へ詳細記録 & 自動 main マージ)
-agycli run "/home/guru/agytest にRustのAPIサーバーを実装して"
-
-# 6. タスク管理
-agycli task list              # タスク一覧表示
-agycli task show TASK-001     # 特定タスクの詳細と実行結果確認
+TASK ID      STATUS         ROLE         AGENT        RETRY  TITLE                         
+------------------------------------------------------------------------------------------
+TASK-001     COMPLETED      researcher   agent-a      0      Spec: /home/guru/agytest に高速な数値計算モジュールを実装して
+TASK-002     COMPLETED      developer    agent-c      0      Implementation: /home/guru/agytest に高速な数値計算モジュールを実装して
+TASK-003     COMPLETED      tester       cnt-a        0      Testing: /home/guru/agytest に高速な数値計算モジュールを実装して
+TASK-004     COMPLETED      reviewer     agent-b      0      Review: /home/guru/agytest に高速な数値計算モジュールを実装して
+TASK-005     COMPLETED      security     agent-a      0      Security: /home/guru/agytest に高速な数値計算モジュールを実装して
 ```
-> ※ `agycli` と `mag` コマンド（例: `mag status`）は完全に同等に使用可能です。
+
+#### ③ タスクへの再接続（Attach）
+```bash
+$ agycli attach TASK-001
+
+======================================================================
+ Attached Session: Task [TASK-001]
+ Status:           COMPLETED
+ Progress:         100% [████████████]
+ Current Step:     All tasks completed
+======================================================================
+
+Agent Role Stages Breakdown:
+  researcher   [████████████] 100% (agent-a) -> COMPLETED
+  developer    [████████████] 100% (agent-c) -> COMPLETED
+  tester       [████████████] 100% (cnt-a)   -> COMPLETED
+  reviewer     [████████████] 100% (agent-b) -> COMPLETED
+  security     [████████████] 100% (agent-a) -> COMPLETED
+
+Recent Event Logs:
+  • [12:12:47] AGENT_ASSIGNED     | "Assigned to agent-a for role researcher"
+  • [12:12:54] AGENT_STARTED      | "Agent agent-a started role researcher"
+  • [12:12:54] CODE_CHANGED       | ["docs/spec.md"]
+  • [12:12:54] AGENT_FINISHED     | "Researcher 'agent-e' completed specification and research for task 'TASK-001'."
+  • [12:12:56] TASK_COMPLETED     | "Completed and verified"
+
+(Detach safely with Ctrl+C. AI will continue running in background.)
+(Type `agycli attach TASK-001` to reconnect anytime)
+```
+
+#### ④ イベントログ・タイムラインの確認
+```bash
+$ agycli logs TASK-001
+
+Event Log Timeline for Task [TASK-001]:
+----------------------------------------------------------------------
+[12:12:47] TASK_CREATED       | Agent: agent-a    | "Spec: /home/guru/agytest に高速な数値計算モジュールを実装して"
+[12:12:47] AGENT_ASSIGNED     | Agent: agent-a    | "Assigned to agent-a for role researcher"
+[12:12:54] AGENT_STARTED      | Agent: agent-a    | "Agent agent-a started role researcher"
+[12:12:54] CODE_CHANGED       | Agent: agent-a    | ["docs/spec.md"]
+[12:12:54] AGENT_FINISHED     | Agent: agent-a    | "Researcher 'agent-e' completed specification and research for task 'TASK-001'."
+[12:12:56] TASK_COMPLETED     | Agent: manager    | "Completed and verified"
+----------------------------------------------------------------------
+```
+
+#### ⑤ 常駐 Daemon 管理
+```bash
+agycli daemon status          # デーモン稼働状況・PID・アクティブタスク数
+agycli daemon start           # デーモン起動 & クラッシュリカバリ
+agycli daemon stop            # デーモン停止
+agycli daemon restart         # デーモン再起動
+```
 
 ---
 
@@ -190,7 +221,7 @@ agycli task show TASK-001     # 特定タスクの詳細と実行結果確認
 
 ```text
 agyCLI++/
-├── Cargo.toml                  # Root Cargo Workspace (v0.2.3)
+├── Cargo.toml                  # Root Cargo Workspace (v0.3.0)
 ├── rust-toolchain.toml         # ツールチェーン固定
 ├── mag                         # 統合CLIランチャー
 ├── docker-compose.yml          # コンテナ構成 & 認証ボリューム共有
@@ -203,19 +234,20 @@ agyCLI++/
 │   ├── mag-task/               # タスクモデル・状態マシン・DAG依存関係
 │   ├── mag-agent/              # エージェント定義・Capabilities・コマンド許可ポリシー
 │   ├── mag-logging/            # 構造化JSONロギング
-│   ├── mag-storage/            # SQLite 永続化 (rusqlite)
+│   ├── mag-storage/            # SQLite 永続化 (tasks, events, sessions, agents)
 │   ├── mag-git/                # Git Worktree / ブランチ / コミット / マージ管理
 │   ├── mag-container/          # Docker CLI 連携 & コンテナ内コマンド実行 & プールスケーリング
 │   ├── mag-api/                # HTTP REST & Google OAuth2 Device Flow クライアント
 │   ├── mag-worker/             # 実行エンジン (CommandExecutor) & ロール別ハンドラー
 │   ├── mag-scheduler/          # タスクDAGスケジューラ & Work-Stealing 協調キュー
-│   ├── mag-manager/            # Manager オーケストレーター & task.md 詳細ログ & 自動 main マージ
-│   └── mag-cli/                # 統合CLIバイナリ (`mag` & `agycli`, 対話型 REPL)
+│   ├── mag-manager/            # Manager オーケストレーター, Daemon, Session (Attach/Detach), Crash Recovery
+│   └── mag-cli/                # 統合CLIバイナリ (`mag` & `agycli`, Detached, Attach, Logs, REPL)
 │
 ├── agents/                     # TOMLエージェント定義 (developer, tester, reviewer, security, researcher)
 ├── containers/                 # Dockerfile定義 (agycli プリインストール済みコンテナ)
 │
 ├── mddir/                      # プロジェクトドキュメント体系
+│   ├── addbigplan.md           # ターミナル切断永続化・Attach/Detach・Daemon・Event Log 全体仕様書
 │   ├── addplan6.md             # agent.md事前認証・ログイン中割当・task.md詳細ログ仕様書
 │   ├── addplan5.md             # 対話型 REPL / TUI & スラッシュコマンド仕様書
 │   ├── addplan4.md             # コンテナログイン・再認証永続化・協調キュー・自動マージ仕様書
@@ -226,7 +258,7 @@ agyCLI++/
 │   ├── TODO.md                 # 実装進捗ロードマップ
 │   ├── MEMORY.md               # 知識ベース・ADR・5大開発原則
 │   ├── AGENTS.md               # エージェント行動規範 & JSON出力スキーマ
-│   ├── CHANGELOG.md            # 変更履歴 (v0.2.3)
+│   ├── CHANGELOG.md            # 変更履歴 (v0.3.0)
 │   └── plan.md                 # 全体構想書
 │
 └── project/                    # 実装コードベース & プロトタイプ
@@ -238,6 +270,7 @@ agyCLI++/
 
 ## 📚 関連ドキュメント
 
+- 🚀 [全体拡張仕様書 (addbigplan.md)](file:///home/guru/agyCLI++/mddir/addbigplan.md)
 - 📋 [第6次拡張仕様書 (addplan6.md)](file:///home/guru/agyCLI++/mddir/addplan6.md)
 - 🖥️ [第5次拡張仕様書 (addplan5.md)](file:///home/guru/agyCLI++/mddir/addplan5.md)
 - 🚀 [第4次拡張仕様書 (addplan4.md)](file:///home/guru/agyCLI++/mddir/addplan4.md)

@@ -684,7 +684,7 @@ checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
 
 [[package]]
 name = "mag-agent"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "mag-common",
  "serde",
@@ -693,7 +693,7 @@ dependencies = [
 
 [[package]]
 name = "mag-api"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "mag-common",
@@ -706,7 +706,7 @@ dependencies = [
 
 [[package]]
 name = "mag-cli"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -722,11 +722,12 @@ dependencies = [
  "mag-task",
  "serde_json",
  "tokio",
+ "toml",
 ]
 
 [[package]]
 name = "mag-common"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "serde",
@@ -736,7 +737,7 @@ dependencies = [
 
 [[package]]
 name = "mag-config"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -749,7 +750,7 @@ dependencies = [
 
 [[package]]
 name = "mag-container"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -759,7 +760,7 @@ dependencies = [
 
 [[package]]
 name = "mag-git"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "tempfile",
@@ -768,7 +769,7 @@ dependencies = [
 
 [[package]]
 name = "mag-logging"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "serde",
@@ -777,9 +778,11 @@ dependencies = [
 
 [[package]]
 name = "mag-manager"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "anyhow",
+ "chrono",
+ "libc",
  "mag-agent",
  "mag-api",
  "mag-common",
@@ -800,7 +803,7 @@ dependencies = [
 
 [[package]]
 name = "mag-scheduler"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "mag-common",
@@ -811,7 +814,7 @@ dependencies = [
 
 [[package]]
 name = "mag-storage"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -826,7 +829,7 @@ dependencies = [
 
 [[package]]
 name = "mag-task"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "mag-common",
@@ -837,7 +840,7 @@ dependencies = [
 
 [[package]]
 name = "mag-worker"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "mag-agent",
