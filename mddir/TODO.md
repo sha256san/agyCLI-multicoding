@@ -34,3 +34,32 @@
   - [x] `agents/developer.toml`, `agents/tester.toml`, `agents/reviewer.toml`, `agents/security.toml`, `agents/researcher.toml`
 - [x] **07. テスト自動化**
   - [x] `cargo test --workspace` による全13 crateの単体・結合テスト（100% PASS）
+
+---
+
+## 🎯 認証・可変スケーリング・コード生成ロードマップ (`mddir/addplan2.md` 準拠) 【完了】
+
+- [x] **Google OAuth2 認証 & セッション管理**
+  - [x] `mag login google`: Device Authorization Flow による安全な認証
+  - [x] `mag whoami`: 認証中アカウント情報の確認
+  - [x] `mag logout`: クレデンシャルの安全な消去
+- [x] **コンテナ・ワーカー数の動的スケーリング**
+  - [x] `mag scale --workers <N>`: ワーカー数の動的変更
+  - [x] `WorkerPoolManager` によるオンデマンドコンテナ管理
+- [x] **自然言語指示からの特定パス実コード自動生成**
+  - [x] プロンプトからの対象ディレクトリ自動抽出（例: `/home/guru/agytest`）
+  - [x] `Cargo.toml`, `src/main.rs`, `docs/spec.md` の実ファイル生成 & テスト自動実行
+
+---
+
+## 🎯 コンテナ内 agycli 統合 & リリースロードマップ (`mddir/addplan3.md` 準拠) 【完了】
+
+- [x] **コンテナ内への `agycli` 自動インストール**
+  - [x] 全 Worker Dockerfile (`containers/*/Dockerfile`) に `agycli` / `mag` バイナリをコピー・実行権限付与
+- [x] **コンテナ内 `agycli` の自動ログイン連携**
+  - [x] `docker-compose.yml` でホストの `.mag/credentials.json` を共有マウント
+  - [x] `find_project_root` にて `/workspace/.mag` および `$HOME/.mag` を自動探索
+- [x] **GitHub リリース v0.2.0**
+  - [x] 全ソースコードのコミット
+  - [x] Git タグ `v0.2.0` 作成
+  - [x] `git@github.com:sha256san/agyCLI-multicoding.git` へのプッシュ

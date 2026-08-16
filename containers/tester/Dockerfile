@@ -11,6 +11,11 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+# Install agycli and mag into container
+COPY target/release/agycli /usr/local/bin/agycli
+COPY target/release/mag /usr/local/bin/mag
+RUN chmod +x /usr/local/bin/agycli /usr/local/bin/mag
+
 RUN useradd -m -s /bin/bash agent-b
 USER agent-b
 WORKDIR /workspace

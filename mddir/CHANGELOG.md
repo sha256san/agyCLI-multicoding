@@ -1,48 +1,34 @@
 # Changelog (CHANGELOG.md)
 
-All notable changes to the **Multi-Agent Development Orchestrator (`mag`)** project will be documented in this file.
+All notable changes to the **Multi-Agent Development Orchestrator (`mag` / `agycli`)** project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [0.3.0] - 2026-08-15
+## [0.2.0] - 2026-08-16
 
 ### Added
-- **Google Account Authentication (`mag login google` / `mag whoami` / `mag logout`)**:
+- **Container `agycli` Integration (`mddir/addplan3.md`)**:
+  - Automatically install `agycli` and `mag` binaries into `/usr/local/bin/` within all Docker container images (`containers/*/Dockerfile`).
+  - Standardized authentication sharing via `.mag/credentials.json` volume mounting, enabling automatic login detection inside containers.
+  - Enhanced `find_project_root` to support container environments (`/workspace` and `$HOME/.mag`).
+- **Google Account Authentication (`mddir/addplan2.md`)**:
   - Implemented Google OAuth2 Device Authorization Flow (`GoogleAuthClient`).
   - Added secure local credential store in `.mag/credentials.json`.
   - Added user identity display in `mag status` and `mag whoami`.
-- **Dynamic Container & Worker Pool Scaling (`mag scale --workers <N>`)**:
+  - Added `mag login [google|token]` and `mag logout` commands.
+- **Dynamic Container & Worker Pool Scaling (`mddir/addplan2.md`)**:
   - Implemented `WorkerPoolManager` in `mag-container` to scale active agent containers dynamically up to N.
-  - Added `--workers` CLI option for scaling execution pool per command.
-- **Target Path & Real Source Code Generation**:
+  - Added `mag scale --workers <N>` command and `--workers` CLI option.
+- **Target Path & Real Source Code Generation (`mddir/addplan2.md`)**:
   - Added automatic target directory path extraction from natural language prompts (e.g. `/home/guru/agytest に...`).
-  - Generated full Rust project structure (`Cargo.toml`, `src/main.rs`, `docs/spec.md`) and verified automated compilation and execution.
-
----
-
-## [0.2.0-rust.1] - 2026-08-15
-
-### Added
-- **Rust-Native Multi-Crate Architecture (`mddir/addplan.md`)**:
-  - Implemented 13-crate Cargo Workspace with pure Rust toolchain:
-    - [`crates/mag-common`](file:///home/guru/agyCLI++/crates/mag-common): Core shared enums, types, and constants.
-    - [`crates/mag-config`](file:///home/guru/agyCLI++/crates/mag-config): TOML configuration loader and validator.
-    - [`crates/mag-task`](file:///home/guru/agyCLI++/crates/mag-task): Task data models, state transitions, and dependency validation.
-    - [`crates/mag-agent`](file:///home/guru/agyCLI++/crates/mag-agent): Agent capability definitions and command allowlist verification.
-    - [`crates/mag-logging`](file:///home/guru/agyCLI++/crates/mag-logging): Structured JSON logging.
-    - [`crates/mag-storage`](file:///home/guru/agyCLI++/crates/mag-storage): SQLite database persistence with `rusqlite`.
-    - [`crates/mag-git`](file:///home/guru/agyCLI++/crates/mag-git): Git repo initialization, branch, worktree, and merge manager.
-    - [`crates/mag-container`](file:///home/guru/agyCLI++/crates/mag-container): Docker container lifecycle and resource management.
-    - [`crates/mag-api`](file:///home/guru/agyCLI++/crates/mag-api): HTTP REST client using `reqwest` with `rustls-tls`.
-    - [`crates/mag-worker`](file:///home/guru/agyCLI++/crates/mag-worker): Task execution engine and dedicated handlers for Developer, Tester, Reviewer, Security, and Researcher.
-    - [`crates/mag-scheduler`](file:///home/guru/agyCLI++/crates/mag-scheduler): Task DAG dependency resolution and scheduling.
-    - [`crates/mag-manager`](file:///home/guru/agyCLI++/crates/mag-manager): Autonomous orchestration engine, `ResultEvaluator` self-repair loop, `EnvDoctor`, and `JpCargoAnalyzer`.
-    - [`crates/mag-cli`](file:///home/guru/agyCLI++/crates/mag-cli): High-performance Rust binary executable (`mag`).
-  - Added TOML agent profiles in [`agents/`](file:///home/guru/agyCLI++/agents/).
-  - Added automated workspace test suite across all 13 crates (`cargo test --workspace`).
+  - Generated full Rust project structure (`Cargo.toml`, `src/main.rs`, `docs/spec.md`) with automated test execution and verification.
+- **Rust-Native 13-Crate Cargo Workspace Architecture (`mddir/addplan.md`)**:
+  - Implemented 13-crate workspace: `mag-common`, `mag-config`, `mag-task`, `mag-agent`, `mag-logging`, `mag-storage`, `mag-git`, `mag-container`, `mag-api`, `mag-worker`, `mag-scheduler`, `mag-manager`, and `mag-cli`.
+  - Provided dual CLI commands `mag` and `agycli`.
+  - 100% automated test suite passing via `cargo test --workspace`.
 
 ---
 

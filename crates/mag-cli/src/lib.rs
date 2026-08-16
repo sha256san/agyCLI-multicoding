@@ -106,6 +106,15 @@ pub fn find_project_root() -> PathBuf {
             break;
         }
     }
+    if let Ok(home) = std::env::var("HOME") {
+        let home_mag = PathBuf::from(&home).join(".mag");
+        if home_mag.exists() {
+            return PathBuf::from(home);
+        }
+    }
+    if PathBuf::from("/workspace/.mag").exists() {
+        return PathBuf::from("/workspace");
+    }
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
