@@ -80,3 +80,73 @@ User ──► $ agycli "Rustで高速なキャッシュサーバーを実装し
 
 ```
 - こんな感じのURLを転送する形に変更してください！！！
+
+```
+
+     ▄▀▀▄
+    ▀▀▀▀▀▀
+   ▀▀▀▀▀▀▀▀
+  ▄▀▀    ▀▀▄
+ ▄▀▀      ▀▀▄
+
+ Welcome to the Antigravity CLI. You are currently not signed in.
+
+ Select login method:
+ > 1. Google OAuth
+   2. Use a Google Cloud project
+
+ [Use arrow keys to navigate, Enter to select]
+
+
+
+
+
+```
+バックグラウンドで実行します、ここで1をエンターで選択して、でてきたURLをターミナルで表示してユーザーがブラウザで認証する形です．
+認証
+```
+
+     ▄▀▀▄
+    ▀▀▀▀▀▀
+   ▀▀▀▀▀▀▀▀
+  ▄▀▀    ▀▀▄
+ ▄▀▀      ▀▀▄
+
+ Your browser should open automatically. If not:
+
+ https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com&code_challen
+ ge=o_qANMMW9afOKvcghCIX7M12sm1lQe4LYfNjjely5Is&code_challenge_method=S256&prompt=consent&redirect_uri=https%3A%2F%2Fantigravity.google%2Foauth-callback&respon
+ se_type=code&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googlea
+ pis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcclog+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fexperimentsandconfigs+https%3A%2F%
+ 2Fwww.googleapis.com%2Fauth%2Faicode+openid&state=qln7FPSRCn8Ln_HYVptwbw                                                                                      
+
+ Copy and paste the URL or click on the link below:
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ → Click here to authenticate
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+ If you aren't automatically redirected, paste the authorization code below:
+
+ authorization code...
+
+
+  shift+up/down Navigate
+```
+
+このURLをコピーしてターミナルに表示してください
+
+```
+guru@DESKTOP-8S8S33I:~/agyCLI++$ agy
+
+      ▄▀▀▄        Antigravity CLI 1.1.13
+     ▀▀▀▀▀▀       koishi040@gmail.com (Google AI Pro)
+    ▀▀▀▀▀▀▀▀      Gemini 3.7 Flash (High)
+   ▄▀▀    ▀▀▄     ~/agyCLI++
+  ▄▀▀      ▀▀▄
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+? for shortcuts 
+```
+になるのでここは表示しなくていいです
