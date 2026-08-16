@@ -328,11 +328,12 @@ fn show_containers(root_path: &Path) -> anyhow::Result<()> {
     let containers = pool_mgr.list_containers(root_path);
 
     println!("\nActive & Configured Agent Containers:");
-    println!("{:<14} {:<14} {:<20} {:<30}", "CONTAINER", "ROLE", "STATUS", "IMAGE");
-    println!("{:-<80}", "");
+    println!("{:<14} {:<14} {:<22} {:<32} {:<25}", "CONTAINER", "ROLE", "STATUS", "ACCOUNT (EMAIL)", "IMAGE");
+    println!("{:-<107}", "");
     for c in &containers {
         let status_mark = if c.is_running { format!("[●] {}", c.status) } else { format!("[○] {}", c.status) };
-        println!("{:<14} {:<14} {:<20} {:<30}", c.name, c.role, status_mark, c.image);
+        let email_str = c.account_email.as_deref().unwrap_or("- (Not Logged In)");
+        println!("{:<14} {:<14} {:<22} {:<32} {:<25}", c.name, c.role, status_mark, email_str, c.image);
     }
     println!();
     Ok(())
@@ -371,11 +372,12 @@ fn show_status(root_path: &Path, db_path: &Path, auth_path: &Path) -> anyhow::Re
     println!("\n  Agent Containers:");
     let pool_mgr = WorkerPoolManager::new();
     let containers = pool_mgr.list_containers(root_path);
-    println!("    {:<12} {:<12} {:<18} {:<25}", "CONTAINER", "ROLE", "STATUS", "IMAGE");
-    println!("    {:-<70}", "");
+    println!("    {:<12} {:<14} {:<20} {:<32}", "CONTAINER", "ROLE", "STATUS", "ACCOUNT (EMAIL)");
+    println!("    {:-<78}", "");
     for c in &containers {
         let status_colored = if c.is_running { format!("[●] {}", c.status) } else { format!("[○] {}", c.status) };
-        println!("    {:<12} {:<12} {:<18} {:<25}", c.name, c.role, status_colored, c.image);
+        let email_str = c.account_email.as_deref().unwrap_or("- (Not Logged In)");
+        println!("    {:<12} {:<14} {:<20} {:<32}", c.name, c.role, status_colored, email_str);
     }
     println!();
     Ok(())

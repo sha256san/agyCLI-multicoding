@@ -207,7 +207,22 @@ Event Log Timeline for Task [TASK-001]:
 ----------------------------------------------------------------------
 ```
 
-#### ⑤ 常駐 Daemon 管理
+#### ⑤ コンテナ稼働状態 & 認証ユーザー確認
+```bash
+$ agycli containers
+
+Active & Configured Agent Containers:
+CONTAINER      ROLE           STATUS                 ACCOUNT (EMAIL)                  IMAGE                    
+-----------------------------------------------------------------------------------------------------------
+agent-a        developer      [●] READY / STANDBY    user-agent-a@google.com          agycli-developer:latest  
+agent-b        tester         [●] READY / STANDBY    user-agent-b@google.com          agycli-tester:latest     
+agent-c        reviewer       [●] READY / STANDBY    user-agent-c@google.com          agycli-reviewer:latest   
+agent-d        security       [○] STOPPED            - (Not Logged In)                agycli-security:latest   
+agent-e        researcher     [○] STOPPED            - (Not Logged In)                agycli-researcher:latest 
+cnt-a          collaborative  [●] READY / STANDBY    user-cnt-a@google.com            agycli-worker:latest     
+```
+
+#### ⑥ 常駐 Daemon 管理
 ```bash
 agycli daemon status          # デーモン稼働状況・PID・アクティブタスク数
 agycli daemon start           # デーモン起動 & クラッシュリカバリ

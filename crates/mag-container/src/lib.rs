@@ -26,6 +26,7 @@ pub struct ContainerInfo {
     pub name: String,
     pub role: String,
     pub status: String,
+    pub account_email: Option<String>,
     pub image: String,
     pub is_running: bool,
 }
@@ -118,6 +119,7 @@ impl ContainerManager {
                             name,
                             role: role.into(),
                             status,
+                            account_email: None,
                             image,
                             is_running: true,
                         });
@@ -138,13 +140,22 @@ impl ContainerManager {
         ];
 
         for (name, role, img) in &configured_roles {
-            if !list.iter().any(|c| c.name == *name || c.name == format!("mag-{}", name)) {
-                let is_auth = logged_in.iter().any(|(n, _)| n == *name);
+            let email_opt = logged_in
+                .iter()
+                .find(|(n, _)| n == *name)
+                .and_then(|(_, a)| a.user.as_ref())
+                .and_then(|u| u.email.clone());
+
+            if let Some(existing) = list.iter_mut().find(|c| c.name == *name || c.name == format!("mag-{}", name)) {
+                existing.account_email = email_opt;
+            } else {
+                let is_auth = email_opt.is_some();
                 let status_str = if is_auth { "READY / STANDBY" } else { "STOPPED" };
                 list.push(ContainerInfo {
                     name: name.to_string(),
                     role: role.to_string(),
                     status: status_str.to_string(),
+                    account_email: email_opt,
                     image: img.to_string(),
                     is_running: is_auth,
                 });
