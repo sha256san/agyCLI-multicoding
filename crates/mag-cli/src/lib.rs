@@ -311,11 +311,40 @@ fn perform_login(root_path: &Path, auth_path: &Path, target: &str, token: Option
         "global".into()
     };
 
-    println!("[*] Authenticating target: '{}' (Browser login mode)...", target);
-    println!("To authenticate:");
-    println!("  1. Open browser: https://www.google.com/device");
-    println!("  2. Enter verification code: AGY-9942-AUTH");
-    println!("\n[*] Waiting for browser authorization callback...");
+    let client_id = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com";
+    let code_challenge = format!("ChINlJI5L3cwf-wMdxY4zhetloIjj5lq792H5-tmL2g_{}", container_name);
+    let state = format!("DadSgkul3RkXfC0lLdec0Q_{}", container_name);
+    let redirect_uri = "https%3A%2F%2Fantigravity.google%2Foauth-callback";
+    let scope = "https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcclog+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fexperimentsandconfigs+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Faicode+openid";
+
+    let oauth_url = format!(
+        "https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id={}&code_challenge={}&code_challenge_method=S256&prompt=consent&redirect_uri={}&response_type=code&scope={}&state={}",
+        client_id, code_challenge, redirect_uri, scope, state
+    );
+
+    println!(
+        r#"
+     ▄▀▀▄
+    ▀▀▀▀▀▀
+   ▀▀▀▀▀▀▀▀
+  ▄▀▀    ▀▀▄
+ ▄▀▀      ▀▀▄
+
+ Your browser should open automatically. If not:
+
+ {}
+
+ Copy and paste the URL or click on the link below:
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ → Click here to authenticate
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+ If you aren't automatically redirected, paste the authorization code below:
+
+ authorization code: [AGY-AUTH-SUCCESS-CALLBACK]
+    "#,
+        oauth_url
+    );
 
     let auth = AuthConfig {
         user: Some(AuthUser {

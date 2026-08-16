@@ -48,3 +48,35 @@ User ──► $ agycli "Rustで高速なキャッシュサーバーを実装し
           │     └─ Manager: 完了ログを検証（失敗時は修正再実行）
           └─► 最終結果サマリーを task.md にまとめ、ユーザーへ報告
 ```
+# 追加修正！！！！
+```
+
+     ▄▀▀▄
+    ▀▀▀▀▀▀
+   ▀▀▀▀▀▀▀▀
+  ▄▀▀    ▀▀▄
+ ▄▀▀      ▀▀▄
+
+ Your browser should open automatically. If not:
+
+ https://accounts.google.com/o/oauth2/auth?access_type=offline&client_id=1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com&code_challen
+ ge=ChINlJI5L3cwf-wMdxY4zhetloIjj5lq792H5-tmL2g&code_challenge_method=S256&prompt=consent&redirect_uri=https%3A%2F%2Fantigravity.google%2Foauth-callback&respon
+ se_type=code&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googlea
+ pis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcclog+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fexperimentsandconfigs+https%3A%2F%
+ 2Fwww.googleapis.com%2Fauth%2Faicode+openid&state=DadSgkul3RkXfC0lLdec0Q                                                                                      
+
+ Copy and paste the URL or click on the link below:
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ → Click here to authenticate
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+ If you aren't automatically redirected, paste the authorization code below:
+
+ authorization code...
+
+
+  shift+up/down Navigate
+
+
+```
+- こんな感じのURLを転送する形に変更してください！！！
