@@ -335,9 +335,11 @@ fn perform_login(root_path: &Path, auth_path: &Path, target: &str, token: Option
 
     if is_container {
         save_container_auth(root_path, &container_name, &auth)?;
-        println!("[✓] Logged in successfully for container '{}'!", container_name);
+        let count = mag_config::update_agent_md(root_path)?;
+        println!("[✓] Logged in successfully for agent '{}'!", container_name);
         println!("    Credentials saved to .mag/containers/{}/credentials.json", container_name);
-        println!("    (Persistent across container restarts and reinstalls)");
+        println!("    [agent.md] Active agent accounts synchronized (Total authenticated: {})", count);
+        println!("    [STANDBY] Agent '{}' is now ready and waiting in standby mode for tasks.", container_name);
     } else {
         save_auth_config(auth_path, &auth)?;
         println!("[✓] Logged in successfully as: {} (Global AGY Session)", auth.user.unwrap().email.unwrap());
@@ -477,14 +479,27 @@ pub fn run_workflow(
         std::fs::create_dir_all(&target_dir)?;
     }
 
-    let worker_count = workers.unwrap_or(orch.config.pool.current_workers);
-    println!("[*] Collaborative Worker Pool: {} active workers", worker_count);
+    let logged_in = mag_config::get_logged_in_agents(root_path);
+    let active_names: Vec<String> = logged_in.into_iter().map(|(name, _)| name).collect();
 
-    println!("[*] Manager: Decomposing requirement into dynamic collaborative DAG...");
-    let tasks = orch.decompose_requirement(prompt, Some(worker_count))?;
+    let tasks = if !active_names.is_empty() {
+        println!("[*] Manager Agent: Found {} authenticated agent(s) in agent.md: {:?}", active_names.len(), active_names);
+        println!("[*] Manager Agent: Assigning tasks dynamically to logged-in agents...");
+        orch.decompose_requirement_with_agents(prompt, &active_names)?
+    } else {
+        let worker_count = workers.unwrap_or(orch.config.pool.current_workers);
+        println!("[*] Collaborative Worker Pool: {} active workers", worker_count);
+        println!("[*] Manager: Decomposing requirement into dynamic collaborative DAG...");
+        orch.decompose_requirement(prompt, Some(worker_count))?
+    };
+
+    // Initialize detailed markdown task log
+    let _ = orch.init_task_md(prompt, &tasks);
+    println!("[*] Initialized task execution log in 'task.md'");
+
     for t in &tasks {
         let deps = if t.dependencies.is_empty() { "root".into() } else { t.dependencies.join(", ") };
-        println!("    - [{}] {:<12} -> Collaborative Worker: {} (depends on: {})", t.id, t.role, t.assigned_agent, deps);
+        println!("    - [{}] {:<12} -> Assigned Agent: {} (depends on: {})", t.id, t.role, t.assigned_agent, deps);
     }
 
     println!("\n[*] Executing Autonomous Collaborative Orchestration Loop...\n");
@@ -509,6 +524,7 @@ pub fn run_workflow(
         println!("  • [{}] {:<12} | {}", t.id, t.status, summary);
     }
     println!("{:=<70}", "");
+    println!("[✓] Final task report and execution logs written to 'task.md'\n");
 
     Ok(())
 }

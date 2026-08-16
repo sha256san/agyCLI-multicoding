@@ -89,3 +89,16 @@
   - [x] `/help`, `/status`, `/doctor`, `/login`, `/whoami`, `/workers`, `/tasks`, `/clear`, `/exit`
 - [x] **対話型自律マルチエージェント開発プロンプト実行**
   - [x] REPL内からのリアルタイムプロンプトディスパッチと `agycli ❯ ` への安全復帰
+
+---
+
+## 🎯 事前認証ログ (`agent.md`) & タスク詳細ログ (`task.md`) ロードマップ (`mddir/addplan6.md` 準拠) 【完了】
+
+- [x] **事前ログイン & `agent.md` 自動同期**
+  - [x] `agycli login <agent-name>` で `agy` 認証を行い `agent.md` を自動更新
+  - [x] 待機エージェント数（STANDBY）を Manager に報告
+- [x] **ログイン中エージェント限定の動的タスクディスパッチ**
+  - [x] Manager Agent が `agent.md` の認証アカウントを自動検知してタスク割り当て
+- [x] **`task.md` による詳細実行ログ & 自己修復レポート**
+  - [x] 実行計画・各エージェントのログ・ファイル変更・テスト結果を `task.md` に自動出力
+  - [x] 完了後の最終レポートを `task.md` に集約出力

@@ -203,6 +203,49 @@ pub fn save_container_auth<P: AsRef<Path>>(root: P, container_name: &str, auth: 
     save_auth_config(path, auth)
 }
 
+pub fn get_logged_in_agents<P: AsRef<Path>>(root: P) -> Vec<(String, mag_common::AuthConfig)> {
+    let mut list = Vec::new();
+    let containers_dir = root.as_ref().join(".mag/containers");
+    if let Ok(entries) = fs::read_dir(containers_dir) {
+        for entry in entries.flatten() {
+            if entry.path().is_dir() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if let Some(auth) = load_container_auth(root.as_ref(), &name) {
+                    list.push((name, auth));
+                }
+            }
+        }
+    }
+    list
+}
+
+pub fn update_agent_md<P: AsRef<Path>>(root: P) -> Result<usize, std::io::Error> {
+    let agents = get_logged_in_agents(root.as_ref());
+    let mut md = String::new();
+    md.push_str("# Active Logged-In Agents (`agent.md`)\n\n");
+    md.push_str("This file is automatically maintained by `agycli` and records all authenticated agents and their assigned accounts.\n\n");
+    md.push_str(&format!("**Total Active Authenticated Agents:** {}\n\n", agents.len()));
+    md.push_str("| Agent Name | Account (Email) | Provider | Status | Last Updated |\n");
+    md.push_str("|---|---|---|---|---|\n");
+
+    if agents.is_empty() {
+        md.push_str("| *(None)* | *(No accounts logged in yet)* | - | STANDBY | - |\n");
+    } else {
+        for (name, auth) in &agents {
+            let email = auth.user.as_ref().and_then(|u| u.email.clone()).unwrap_or_else(|| "N/A".into());
+            let provider = auth.user.as_ref().map(|u| u.provider.as_str()).unwrap_or("google");
+            let updated = auth.updated_at.to_rfc3339();
+            md.push_str(&format!("| **{}** | `{}` | {} | `READY / STANDBY` | {} |\n", name, email, provider, updated));
+        }
+    }
+
+    md.push_str("\n---\n*Manager Agent dynamically queries this list to dispatch development tasks exclusively to authenticated agents.*\n");
+
+    let agent_md_path = root.as_ref().join("agent.md");
+    fs::write(agent_md_path, md)?;
+    Ok(agents.len())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

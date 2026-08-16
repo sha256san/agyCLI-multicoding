@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.3] - 2026-08-16
+
+### Added
+- **Pre-Authentication Logging & `agent.md` (`mddir/addplan6.md`)**:
+  - `agycli login <agent-name>` executes backend `agy` authentication, associates the account, saves to `.mag/containers/<name>/credentials.json`, and updates `agent.md` with standby agent status.
+  - Active accounts count is reported to Manager Agent upon login.
+- **Dynamic Task Dispatch to Active Logged-In Agents**:
+  - Manager Agent queries `agent.md` and assigns DAG tasks strictly across authenticated agents (e.g. `agent-a`, `cnt-a`, `agent-b`).
+- **Detailed Execution & Self-Repair Logging (`task.md`)**:
+  - Automatically generates `task.md` with the initial Task DAG plan.
+  - Appends real-time execution results, files modified, test logs, and self-repair retries for each step.
+  - Finalizes full workflow summary in `task.md` for user review.
+
+---
+
 ## [0.2.2] - 2026-08-16
 
 ### Added
